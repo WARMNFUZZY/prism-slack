@@ -34,6 +34,7 @@
 
 import os
 
+
 class Prism_Slack_Variables(object):
     def __init__(self, core, plugin):
         self.core = core
