@@ -252,16 +252,19 @@ class Prism_Slack_externalAccess_Functions(object):
         self.config = self.slack_config.loadConfig(mode="studio")
         token = self.config["slack"]["token"]
         app_token = self.config["slack"]["server"]["app_token"]
-        executable = sys.executable
+        executable = os.path.join(self.core.prismLibs, "Python311", "python.exe")
 
-        self.bolt = SlackBoltServer(self.core, token, app_token)
+        sub_env = os.environ.copy()
+        sub_env["BOLTPATH"] = f"{Path(__file__).resolve().parents[1]}\PythonLibs"
+        sub_env["SCRIPTSPATH"] = f"{Path(__file__).resolve().parents[0]}"
+        sub_env["PRISMPATH"] = f"{self.core.prismLibs}\PythonLibs\Python3"
 
         if os.path.exists(bolt_path):
             self.bolt = subprocess.Popen(
-                [executable, bolt_path], 
-                 shell=True, 
-                 text=True
-                 )
+                [executable, bolt_path, token, app_token], 
+                env=sub_env, 
+                text=True
+            )
         else:
             QMessageBox.critical(self, "Error", "bolt.py not found. Please make sure you have installed the required dependencies.")
     
@@ -272,5 +275,5 @@ class Prism_Slack_externalAccess_Functions(object):
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)
     def isStudioLoaded(self):
-        studio = self.core.getPlugin("Studio")
+        studio = self.core.getPlugin("Studio") 
         return studio

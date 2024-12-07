@@ -33,8 +33,6 @@
 
 
 import os
-import sys
-import shutil
 
 class Prism_Slack_Variables(object):
     def __init__(self, core, plugin):
@@ -45,6 +43,3 @@ class Prism_Slack_Variables(object):
         self.pluginType = "Custom"
         self.platforms = ["Windows"]
         self.pluginDirectory = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
-        self.slack_apis = os.path.join(self.pluginDirectory, "PythonLibs", "Python3", "slack_bolt")
-        sys.path.append(self.slack_apis)

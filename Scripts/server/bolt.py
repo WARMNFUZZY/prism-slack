@@ -1,21 +1,29 @@
+import os
 import sys
+
+def setupPaths():
+    sys.path.append(os.getenv("BOLTPATH"))
+    sys.path.append(os.getenv("SCRIPTSPATH"))
+    sys.path.append(os.getenv("PRISMPATH"))
+    sys.path.append(f'{os.getenv("PRISMPATH")}\..\..\Scripts')
+    sys.path.extend(os.getenv("PATH").split(";"))
+
+setupPaths()
+
 from slack_bolt import App
 
-from .events import SlackEvents
+from server.events import SlackEvents
 
 class SlackBoltServer():
-    def __init__(self, core, token, app_token):
-        self.core = core
+    def __init__(self, token, app_token):
         self.token = token
+        self.app_token = app_token
+        self.app = App(token=self.token)
 
-        # Initializes your app with your bot token
-        app = App(token=self.token)
-
-        events = SlackEvents(app, token)
+        self.events = SlackEvents(self.app, token)
         
-        # Start your app
-        if __name__ == "__main__":
-            from slack_bolt.adapter.socket_mode import SocketModeHandler
+if __name__ == "__main__":
+    from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-            self.app_token = app_token
-            SocketModeHandler(app, self.app_token).start()
+    bolt = SlackBoltServer(sys.argv[1], sys.argv[2])
+    SocketModeHandler(bolt.app, bolt.app_token).start()
