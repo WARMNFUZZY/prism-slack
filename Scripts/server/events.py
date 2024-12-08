@@ -14,9 +14,6 @@ class SlackEvents:
         self.register_actions()
 
     def register_actions(self):
-        from pprint import pprint
-        blocks = self.blocks.approval_buttons()
-        pprint(blocks)
 
         # Listens to incoming messages that contain "hello
         @self.app.message("hello")

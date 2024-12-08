@@ -15,6 +15,8 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+from server.blocks import SlackBlocks
+
 from slack_integration.slack_config import SlackConfig
 from slack_integration.user_pools import UserPools
 
@@ -31,6 +33,7 @@ class Prism_Slack_Functions(object):
 
         self.slack_config = SlackConfig(self.core)
         self.slack_user_pools = UserPools(self.core)
+        self.slack_blocks = SlackBlocks()
 
         self.core.registerCallback("mediaPlayerContextMenuRequested", self.mediaPlayerContextMenuRequested, plugin=self)
         self.core.registerCallback("onStateStartup", self.onStateStartup, plugin=self)
@@ -535,14 +538,23 @@ class Prism_Slack_Functions(object):
             post_url = "https://slack.com/api/files.completeUploadExternal"
             post_payload = {
                 "files": [{"id": id, "title": file_upload}], 
-                "channel_id": conversation_id, 
-                "initial_comment": comment
+                "channel_id": conversation_id
                 }
 
             response = requests.post(post_url, headers=headers, json=post_payload)
 
             uploaded = True
             self.successfulPOST(uploaded, method)
+
+            comment_url = 'https://slack.com/api/chat.postMessage'
+            comment_payload = {
+                "channel": conversation_id,
+                "blocks": [
+                    self.slack_blocks.comments(comment),
+                    self.slack_blocks.approval_buttons()
+                ]
+                }
+            requests.post(comment_url, headers=headers, json=comment_payload)
         
         except Exception as e:
             uploaded = False

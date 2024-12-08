@@ -301,6 +301,11 @@ class Prism_Slack_externalAccess_Functions(object):
             print("Slack Bolt Server is not running")
 
     @err_catcher(name=__name__)
+    def guiStartServer(self):
+        self.startServer()
+        self.checkServerStatus()
+        
+    @err_catcher(name=__name__)
     def checkServerStatus(self):
         self.config = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(self.config)
