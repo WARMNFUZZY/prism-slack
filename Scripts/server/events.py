@@ -1,19 +1,29 @@
 import requests
-import json
+
+from server.blocks import SlackBlocks
+
 class SlackEvents:
-    def __init__(self, app, token):
+    def __init__(self, app, token, blocks):
         self.app = app
         self.token = token
         self.metadata = {}  # Store metadata for thread timestamps
+        self.blocks = SlackBlocks()
+
         
         # Register actions
         self.register_actions()
 
     def register_actions(self):
+        from pprint import pprint
+        blocks = self.blocks.approval_buttons()
+        pprint(blocks)
+
         # Listens to incoming messages that contain "hello
         @self.app.message("hello")
         def message_hello(message, say):
             # Post the message with a button
+            from pprint import pprint
+            pprint(message)
             response = say(
                 blocks=[
                     {
@@ -45,58 +55,35 @@ class SlackEvents:
                 ],
                 text=f"Hey there <@{message['user']}>!"
             )
-            from pprint import pprint
-            pprint(response.data)
-            # Save the message timestamp for threading
-            self.app.metadata = {"thread_ts": response.get("ts")}
-            print(self.app.metadata)
+            self.app.metadata = {"thread_ts": response["ts"]}
 
         @self.app.action("button_approved")
-        def approved_button_click(body, ack):
+        def action_button_approved(body, ack, say):
             ack()
-
+            from pprint import pprint
+            pprint(body)
+            user_id = body["user"]["id"]
+            pprint(user_id)
             thread_ts = self.app.metadata.get("thread_ts", None)
             if thread_ts:
                 url = "https://slack.com/api/chat.postMessage"
                 headers = {
                     "Authorization": f"Bearer {self.token}",
-                    "Content-Type": "application/json"
                 }
                 payload = {
                     "channel": body["channel"]["id"],
-                    "text": "Your submission has been approved!",
+                    "text": "Approved by " f"<@{user_id}>",
                     "thread_ts": thread_ts
                 }
+                response = requests.post(url, headers=headers, json=payload)
+                if response.status_code != 200 or not response.json().get("ok"):
+                    print(f"Error posting message: {response.json()}")
+            else:
+                print("Thread timestamp not found.")
 
-            self.post_threaded_message(body, "Your submission has been approved!")
-
-        # Handles button clicks
-        # @self.app.action("button_click")
-        # def action_button_click(body, ack):
-        #     # Acknowledge the button click
-        #     ack()
-        #     from pprint import pprint
-        #     pprint(self.app.metadata)
-        #     # Retrieve the parent message's timestamp
-        #     thread_ts = self.app.metadata.get("thread_ts", None)
-        #     if thread_ts:
-        #         # Post a threaded reply using the Slack Web API
-        #         url = "https://slack.com/api/chat.postMessage"
-        #         headers = {
-        #             "Authorization": f"Bearer {self.token}",
-        #             "Content-Type": "application/json"
-        #         }
-        #         payload = {
-        #             "channel": body["channel"]["id"],
-        #             "text": "This is a reply in the thread!",
-        #             "thread_ts": thread_ts
-        #         }
-        #         response = requests.post(url, headers=headers, json=payload)
-        #         if response.status_code != 200 or not response.json().get("ok"):
-        #             print(f"Error posting message: {response.json()}")
-        #     else:
-        #         print("Thread timestamp not found.")
-
+        @self.app.action("button_needs_revised")
+        def action_button_needs_revised(body, ack):
+            ack()
 
 
     def approval_buttons(self, channel):
@@ -137,24 +124,3 @@ class SlackEvents:
         response = requests.post(url, headers=headers, json=payload)
 
         self.metadata["thread_ts"] = response.json()["ts"]
-
-    def post_threaded_message(self, body, text):
-        # Post a reply in the thread
-        thread_ts = self.metadata.get("thread_ts")
-        if not thread_ts:
-            print("Thread timestamp not found.")
-            return
-
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "channel": body["channel"]["id"],
-            "text": text,
-            "thread_ts": thread_ts
-        }
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code != 200 or not response.json().get("ok"):
-            print(f"Error posting threaded message: {response.json()}")

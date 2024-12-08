@@ -1,7 +1,8 @@
 import os
-import json
-import sys
 import subprocess
+import socket
+import threading
+import win32api
 
 from pathlib import Path
 
@@ -9,7 +10,6 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
-from server.bolt import SlackBoltServer
 from slack_integration.slack_config import SlackConfig
 from util.settings_ui import SettingsUI
 from util.dialogs import InputDialog
@@ -97,6 +97,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         # Check for the app-level token and assign it in the ui
         self.checkAppLevelToken()
+        self.checkServerStatus()
 
     @err_catcher(name=__name__)
     def connectEvents(self):
@@ -248,7 +249,6 @@ class Prism_Slack_externalAccess_Functions(object):
     def startServer(self):
         scripts_path = Path(__file__).resolve().parents[0]
         bolt_path = os.path.join(scripts_path, "server", "bolt.py")
-        
         self.config = self.slack_config.loadConfig(mode="studio")
         token = self.config["slack"]["token"]
         app_token = self.config["slack"]["server"]["app_token"]
@@ -259,18 +259,68 @@ class Prism_Slack_externalAccess_Functions(object):
         sub_env["SCRIPTSPATH"] = f"{Path(__file__).resolve().parents[0]}"
         sub_env["PRISMPATH"] = f"{self.core.prismLibs}\PythonLibs\Python3"
 
-        if os.path.exists(bolt_path):
-            self.bolt = subprocess.Popen(
-                [executable, bolt_path, token, app_token], 
-                env=sub_env, 
-                text=True
-            )
-        else:
-            QMessageBox.critical(self, "Error", "bolt.py not found. Please make sure you have installed the required dependencies.")
-    
+        self.server_status = self.config["slack"]["server"].get("status")
+        self.machine = self.config["slack"]["server"].get("machine")
+
+        win32api.SetConsoleCtrlHandler(lambda event: (self.resetServerStatus() if event == 2 else False), True)
+
+        try:
+            if self.server_status != "Running" and os.path.exists(bolt_path):
+                self.bolt = subprocess.Popen(
+                    [executable, bolt_path, token, app_token], 
+                    env=sub_env, 
+                    text=True
+                )
+
+                pipeline_data = self.slack_config.loadConfig(mode="studio")
+                pipeline_data["slack"]["server"]["status"] = "Running"
+                pipeline_data["slack"]["server"]["machine"] = socket.gethostname()
+                self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
+
+                print("Slack Bolt Server started successfully")
+
+        except Exception as e:
+            self.core.popup(f"Error starting the Slack Bolt Server: {e}")
+            self.stopServer()
+
+    def resetServerStatus(self):
+        pipeline_data = self.slack_config.loadConfig(mode="studio")
+        pipeline_data["slack"]["server"]["status"] = ""
+        pipeline_data["slack"]["server"]["machine"] = ""
+        self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
+
     @err_catcher(name=__name__)
-    def guiStartServer(self):
-        self.core.popup("This feature is not currently available in the GUI. Please use the command line to start the server. You can do so by following the documentation")
+    def stopServer(self):
+        """Stop the server if it's running."""
+        if self.bolt and self.bolt.poll() is None:
+            self.resetServerStatus()
+            self.bolt.terminate()
+            self.bolt.wait()
+            print("Slack Bolt Server stopped")
+        else:
+            print("Slack Bolt Server is not running")
+
+    @err_catcher(name=__name__)
+    def checkServerStatus(self):
+        self.config = self.slack_config.loadConfig(mode="studio")
+        self.slack_config.checkSlackOptions(self.config)
+
+        self.l_server_status_value = self.settings_ui.l_server_status_value
+        self.l_machine_value = self.settings_ui.l_machine_value
+
+        if 'status' in self.config['slack']['server']:
+            self.server_status = self.config['slack']['server'].get('status')
+            if self.server_status == "":
+                self.l_server_status_value.setText("Not running")
+            else:
+                self.l_server_status_value.setText(self.server_status)
+
+        if 'machine' in self.config['slack']['server']:
+            self.server_machine = self.config['slack']['server'].get('machine')
+            if self.server_machine == "":
+                self.l_machine_value.setText("---------")
+            else:
+                self.l_machine_value.setText(self.server_machine)
 
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)
