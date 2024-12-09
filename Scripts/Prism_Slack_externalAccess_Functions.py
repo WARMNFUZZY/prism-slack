@@ -12,7 +12,7 @@ from qtpy.QtWidgets import *
 
 from slack_integration.slack_config import SlackConfig
 from util.settings_ui import SettingsUI
-from util.dialogs import InputDialog
+from util.dialogs import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -113,8 +113,11 @@ class Prism_Slack_externalAccess_Functions(object):
         self.b_app_token = self.settings_ui.b_app_token
         self.b_app_token.clicked.connect(self.inputAppLevelToken)
 
-        self.b_start_server = self.settings_ui.b_start_server
-        self.b_start_server.clicked.connect(self.guiStartServer)
+        self.b_server = self.settings_ui.b_server
+        self.b_server.clicked.connect(self.toggleServer)
+
+        self.b_reset_server = self.settings_ui.b_reset_server
+        self.b_reset_server.clicked.connect(self.resetServerStatus)
 
     @err_catcher(name=__name__)
     def addNotifyMethods(self):
@@ -277,8 +280,6 @@ class Prism_Slack_externalAccess_Functions(object):
                 pipeline_data["slack"]["server"]["machine"] = socket.gethostname()
                 self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
-                print("Slack Bolt Server started successfully")
-
         except Exception as e:
             self.core.popup(f"Error starting the Slack Bolt Server: {e}")
             self.stopServer()
@@ -289,22 +290,44 @@ class Prism_Slack_externalAccess_Functions(object):
         pipeline_data["slack"]["server"]["machine"] = ""
         self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
+        self.checkServerStatus()
+
     @err_catcher(name=__name__)
     def stopServer(self):
-        """Stop the server if it's running."""
-        if self.bolt and self.bolt.poll() is None:
-            self.resetServerStatus()
-            self.bolt.terminate()
-            self.bolt.wait()
-            print("Slack Bolt Server stopped")
-        else:
-            print("Slack Bolt Server is not running")
+        self.config = self.slack_config.loadConfig(mode="studio")
+        status = self.config["slack"]["server"].get("status")
+
+        if status == "Running":
+            if self.bolt and self.bolt.poll() is None:
+                self.resetServerStatus()
+                self.bolt.terminate()
+                self.bolt.wait()
+                print("Slack Bolt Server stopped")
+            else:
+                print("Slack Bolt Server is not running")
 
     @err_catcher(name=__name__)
     def guiStartServer(self):
-        self.startServer()
-        self.checkServerStatus()
-        
+        start_check = ServerStartWarning()
+        if start_check.exec_() == QDialog.Accepted:
+            self.startServer()
+            self.b_server.setText("Stop Server")
+            self.b_reset_server.setEnabled(False)
+            self.checkServerStatus()
+        else:
+            return
+    
+    @err_catcher(name=__name__)
+    def guiStopServer(self):
+        stop_check = ServerStopWarning()
+        if stop_check.exec_() == QDialog.Accepted:
+            self.stopServer()
+            self.b_server.setText("Start Server")
+            self.b_reset_server.setEnabled(True)
+            self.checkServerStatus()
+        else:
+            return
+
     @err_catcher(name=__name__)
     def checkServerStatus(self):
         self.config = self.slack_config.loadConfig(mode="studio")
@@ -326,6 +349,26 @@ class Prism_Slack_externalAccess_Functions(object):
                 self.l_machine_value.setText("---------")
             else:
                 self.l_machine_value.setText(self.server_machine)
+
+    @err_catcher(name=__name__)
+    def toggleServer(self):
+        self.config = self.slack_config.loadConfig(mode="studio")
+        self.b_server = self.settings_ui.b_server
+        self.b_reset_server = self.settings_ui.b_reset_server
+
+        self.server_machine = self.config["slack"]["server"].get("machine")
+        self.server_status = self.config["slack"]["server"].get("status")
+        
+        if self.server_status == "Running":
+            if socket.gethostname() != self.server_machine:
+                self.non_server_check = ServerNonWarning()
+                self.non_server_check.exec_()
+                return
+            else:
+                self.guiStopServer()
+        else:
+            self.b_reset_server.setEnabled(True)
+            self.guiStartServer()
 
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)

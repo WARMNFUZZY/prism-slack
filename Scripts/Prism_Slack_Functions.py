@@ -15,13 +15,17 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+#REMOVE THIS IMPORT LINE BEFORE PUBLISH. ONLY DESIGNED TO REMOVE THE PROBLEMS UNDER THE CLASSES
+# from PyQt6 import QtWidgets, QGroupBox, QVBoxLayout, QCheckBox, QComboBox, QLabel, QSpinBox, QFileDialog, QInputDialog, QMessageBox, QAction, QDialog, QTimer
 from server.blocks import SlackBlocks
 
 from slack_integration.slack_config import SlackConfig
 from slack_integration.user_pools import UserPools
+from slack_integration.slack_api import *
 
 from util.dialogs import *
 from util.state_manager_ui import StateManagerUI
+from util.convert_image_sequence import ConvertImageSequence
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -33,7 +37,11 @@ class Prism_Slack_Functions(object):
 
         self.slack_config = SlackConfig(self.core)
         self.slack_user_pools = UserPools(self.core)
+        self.slack_upload = UploadContent(self.core)
+        self.slack_message = PostMessage(self.core)
+        self.slack_user_info = UserInfo(self.core)
         self.slack_blocks = SlackBlocks()
+        self.convert_image_sequence = ConvertImageSequence(self.core)
 
         self.core.registerCallback("mediaPlayerContextMenuRequested", self.mediaPlayerContextMenuRequested, plugin=self)
         self.core.registerCallback("onStateStartup", self.onStateStartup, plugin=self)
@@ -104,7 +112,7 @@ class Prism_Slack_Functions(object):
 
                     if rangeType != "Single Frame" and startFrame < endFrame:                    
                         if state.chb_mediaConversion.isChecked() is False:
-                            convert = self.convertImageSequence(outputPath)
+                            convert = self.convert_image_sequence.convertImageSequence(outputPath)
                             outputList = [convert]
                     
                     if state.chb_mediaConversion.isChecked() is True:
@@ -120,7 +128,7 @@ class Prism_Slack_Functions(object):
                         if option in ['png', 'jpg']:
                             framePad = '#' * self.core.framePadding
                             sequence = f"{converted_directory}/{base} ({ext}).{framePad}.{ext}"
-                            convert = self.convertImageSequence(sequence)
+                            convert = self.convert_image_sequence.convertImageSequence(sequence)
                             outputList = [convert]
 
                 self.publishToSlack_fromSM(outputList)
@@ -139,10 +147,9 @@ class Prism_Slack_Functions(object):
                 project = self.getCurrentProject()
                 channel = self.getChannelId(access_token, project)
                 channel_users = self.slack_user_pools.getChannelUsers(access_token, channel)
-                notify_user_id = self.getSlackUser(notify_user, channel_users)
-                print(f"Returned Slack User: {notify_user_id}")
+                notify_user_id = self.getSlackUserId(notify_user, channel_users)
                 product = state.l_taskName.text()
-                sender_id = self.getSlackUser(self.getSlackUsername(), channel_users)
+                sender_id = self.getSlackUserId(self.getPrismSlackUsername(), channel_users)
                 
                 self.notifySlackUser(access_token, notify_user_id, channel, product, sender_id)
 
@@ -181,7 +188,7 @@ class Prism_Slack_Functions(object):
 
                     if rangeType != "Single Frame" and startFrame < endFrame:                 
                         if state.chb_mediaConversion.isChecked() is False:
-                            convert = self.convertImageSequence(outputPath)
+                            convert = self.convert_image_sequence.convertImageSequence(outputPath)
                             outputList = [convert]
                         else:
                             option = state.cb_mediaConversion.currentText().lower()
@@ -200,7 +207,7 @@ class Prism_Slack_Functions(object):
                             if ext in ['png', 'jpg']:
                                 framePad = '#' * self.core.framePadding
                                 sequence = f"{converted_directory}/{file} ({ext})_{aov_directory}.{framePad}.{ext}"
-                                convert = self.convertImageSequence(sequence)
+                                convert = self.convert_image_sequence.convertImageSequence(sequence)
                                 outputList = [convert]
                                 
                 self.publishToSlack_fromSM(outputList)
@@ -211,27 +218,28 @@ class Prism_Slack_Functions(object):
     @err_catcher(name=__name__)
     def isActive(self):
         return True
-
-    # Get current version in the Media tab in the Prism Project Browser
+  
+    # Get current version in the Media tab in the Prism Project Browser   
     @err_catcher(name=__name__)
-    def mediaPlayerContextMenuRequested(self, origin, menu):
-        if not type(origin.origin).__name__ == "MediaBrowser":
-            return
+    def mediaPlayerContextMenuRequested(self, origin, menu):    
+        if not type(origin.origin).__name__ == "MediaBrowser":   
+            return   
 
-        version = origin.origin.getCurrentVersion()
-        if not version:
-            return
-
-        if not origin.seq:
-            return
+        self.identifier = origin.origin.getCurrentIdentifier()['identifier']     
+        self.sequence = origin.origin.getCurrentIdentifier()['sequence']   
+        self.shot = origin.origin.getCurrentIdentifier()['shot'] 
+        self.version = origin.origin.getCurrentVersion()['version']
 
         action = QAction("Publish to Slack", origin)
-        
-        plugin_directory = Path(__file__).resolve().parents[1]
-        iconPath = os.path.join(plugin_directory, "Resources", "slack-icon.png")
+        iconPath = os.path.join(self.pluginDirectory, "Resources", "slack-icon.png")
         icon = self.core.media.getColoredIcon(iconPath)
         
-        action.triggered.connect(lambda: self.publishToSlack_fromMedia(origin.seq))
+        action.triggered.connect(lambda: self.publishToSlack_fromMedia(
+            origin.seq, 
+            self.identifier, 
+            self.sequence, 
+            self.shot, 
+            self.version))
         
         menu.insertAction(menu.actions()[-1], action)
         action.setIcon(icon)
@@ -257,7 +265,7 @@ class Prism_Slack_Functions(object):
         proj = self.getCurrentProject()
         channel_id = self.getChannelId(access_token, proj)
 
-        notify_user_pool = self.getNotifyMethod().lower()
+        notify_user_pool = self.getNotifyUserPool().lower()
         users = []
         if notify_user_pool == "studio":
             users = self.slack_user_pools.getStudioUsers(state)
@@ -307,92 +315,88 @@ class Prism_Slack_Functions(object):
         return ext
     
     # Convert image sequence to MP4 for Slack
-    @err_catcher(name=__name__)
-    def convertImageSequence(self, sequence):
-        # Define the "slack" output folder
-        folder_path = os.path.dirname(sequence)
-        slack_folder = os.path.join(folder_path, "slack")
+    # @err_catcher(name=__name__)
+    # def convertImageSequence(self, sequence):
+    #     # Define the "slack" output folder
+    #     folder_path = os.path.dirname(sequence)
+    #     slack_folder = os.path.join(folder_path, "slack")
         
-        if not os.path.exists(slack_folder):
-            os.makedirs(slack_folder)
+    #     if not os.path.exists(slack_folder):
+    #         os.makedirs(slack_folder)
 
-        # Construct input and output paths
-        input_sequence = sequence.replace('.####.', '.%04d.')
-        basename = os.path.basename(sequence).split('.####.')[0]
-        output_file = os.path.join(slack_folder, basename + '.mp4')
+    #     # Construct input and output paths
+    #     input_sequence = sequence.replace('.####.', '.%04d.')
+    #     basename = os.path.basename(sequence).split('.####.')[0]
+    #     output_file = os.path.join(slack_folder, basename + '.mp4')
         
-        ffmpegPath = os.path.join(self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe")
-        ffmpegPath = ffmpegPath.replace('\\', '/')
+    #     ffmpegPath = os.path.join(self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe")
+    #     ffmpegPath = ffmpegPath.replace('\\', '/')
 
-        if not os.path.exists(ffmpegPath):
-            self.core.popup(f"ffmpeg not found at {ffmpegPath}")
-            return
+    #     if not os.path.exists(ffmpegPath):
+    #         self.core.popup(f"ffmpeg not found at {ffmpegPath}")
+    #         return
 
-        # Search for matching files to determine the start frame
-        pattern = sequence.replace('.####.', '.*.')
-        files = sorted(glob.glob(pattern))
-        if not files:
-            self.core.popup(f"No files found matching pattern: {pattern}")
-            return
+    #     # Search for matching files to determine the start frame
+    #     pattern = sequence.replace('.####.', '.*.')
+    #     files = sorted(glob.glob(pattern))
+    #     if not files:
+    #         self.core.popup(f"No files found matching pattern: {pattern}")
+    #         return
         
-        start_frame = re.search(r"\.(\d{4})\.", files[0])
-        if start_frame:
-            start_frame = start_frame.group(1)
-        else:
-            self.core.popup("Failed to determine the starting frame.")
-            return
+    #     start_frame = re.search(r"\.(\d{4})\.", files[0])
+    #     if start_frame:
+    #         start_frame = start_frame.group(1)
+    #     else:
+    #         self.core.popup("Failed to determine the starting frame.")
+    #         return
 
-        # Run ffmpeg to create the video
-        try:
-            result = subprocess.run([
-                ffmpegPath,
-                "-framerate", "24",
-                "-start_number", start_frame,
-                "-i", input_sequence,
-                "-c:v", "libx264",
-                "-pix_fmt", "yuv420p",
-                output_file
-            ], capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            self.core.popup(f"Error running ffmpeg: {e.stderr.decode()}")
-            return
+    #     # Run ffmpeg to create the video
+    #     try:
+    #         result = subprocess.run([
+    #             ffmpegPath,
+    #             "-framerate", "24",
+    #             "-start_number", start_frame,
+    #             "-i", input_sequence,
+    #             "-c:v", "libx264",
+    #             "-pix_fmt", "yuv420p",
+    #             output_file
+    #         ], capture_output=True, check=True)
+    #     except subprocess.CalledProcessError as e:
+    #         self.core.popup(f"Error running ffmpeg: {e.stderr.decode()}")
+    #         return
 
-        output_file = output_file.replace("\\", "/")
-        return output_file
+    #     output_file = output_file.replace("\\", "/")
+    #     return output_file
 
-    @err_catcher(name=__name__)
-    def getSlackConfig(self):
-        if self.isStudioLoaded() is None:
-            prjConfig_path = os.path.dirname(self.core.prismIni)
-            config = os.path.join(prjConfig_path, "pipeline.json")
-        else:
-            studio_plugin = self.core.getPlugin('Studio')
-            config = os.path.join(studio_plugin.getStudioPath(), "configs", "slack.json")
+    # @err_catcher(name=__name__)
+    # def getSlackConfig(self):
+    #     if self.isStudioLoaded() is None:
+    #         prjConfig_path = os.path.dirname(self.core.prismIni)
+    #         config = os.path.join(prjConfig_path, "pipeline.json")
+    #     else:
+    #         studio_plugin = self.core.getPlugin('Studio')
+    #         config = os.path.join(studio_plugin.getStudioPath(), "configs", "slack.json")
 
-        return config
+    #     return config
     
     @err_catcher(name=__name__)
-    def getNotifyMethod(self):
-        slack_config = self.getSlackConfig()
-        with open(slack_config, "r") as f:
-            load_config = json.load(f)
+    def getNotifyUserPool(self):
+        slack_config = self.slack_config.loadConfig("studio")
             
-            return load_config["slack"]["notify_user_pool"]
+        return slack_config["slack"]['notifications'].get('user_pool')
+    
+    @err_catcher(name=__name__)
+    def getNotifyUserMethod(self):
+        slack_config = self.slack_config.loadConfig("studio")
+            
+        return slack_config["slack"]['notifications'].get('method')
 
     # Get Slack Access Token from environment variable
     @err_catcher(name=__name__)
     def getAccessToken(self):
-        studio_plugin = self.isStudioLoaded()
-        
-        if studio_plugin is None:
-            access_token = self.core.getConfig("slack", "token", configPath=self.core.prismIni)
-            return access_token
-        else:
-            slack_config = self.getSlackConfig()
-            with open(slack_config, "r") as f:
-                load_config = json.load(f)
-                
-                return load_config["slack"]["token"]
+        slack_config = self.slack_config.loadConfig("studio")
+            
+        return slack_config["slack"]["token"]
 
     # Get Slack Channel ID from conversation list
     @err_catcher(name=__name__)
@@ -419,15 +423,14 @@ class Prism_Slack_Functions(object):
     
     # Get Slack Display Name from prism user configuration
     @err_catcher(name=__name__)
-    def getSlackUsername(self):
+    def getPrismSlackUsername(self):
         user_data = self.slack_config.loadConfig("user")
-        username = user_data["slack"].get("username")
 
-        return username
+        return user_data["slack"].get("username")
 
     # Get Slack User ID from user list
     @err_catcher(name=__name__)
-    def getSlackUser(self, username, user_pool):
+    def getSlackUserId(self, username, user_pool):
         for user in user_pool:
             print(user)
             if username == user['display_name']:
@@ -449,31 +452,10 @@ class Prism_Slack_Functions(object):
         if os.getenv('PRISM_SEQUENCE') is not None:
             seq = os.getenv('PRISM_SEQUENCE')
             shot = os.getenv('PRISM_SHOT')
-        print(f"Notify Slack User: {slack_user} - {channel}")
+
         message = self.getMessage(slack_user, seq, shot, product, sender)
 
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {
-            "Authorization": f"Bearer {access_token}"
-            }
-        payload = {
-            "channel": channel,
-            "text": f"{message}"
-        }
-        requests.post(url, headers=headers, json=payload)
-
-    @err_catcher(name=__name__)
-    def sendEphemeralMessage(self, access_token, slack_user, channel_id, message):
-        url = "https://slack.com/api/chat.postEphemeral"
-        headers = {
-            "Authorization": f"Bearer {access_token}"
-            }
-        payload = {
-            "channel": channel_id,
-            "user": slack_user,
-            "text": message
-        }
-        requests.post(url, headers=headers, json=payload)
+        self.slack_message.postChannelMessage(access_token, channel, message)
 
     @err_catcher(name=__name__)
     def getMessage(self, slack_user, seq, shot, product, sender):
@@ -500,69 +482,45 @@ class Prism_Slack_Functions(object):
     
     # Upload file to Slack
     @err_catcher(name=__name__)
-    def uploadToSlack(self, access_token, conversation_id, file_upload, method):
-        prism_user = self.getSlackUsername()
+    def uploadToSlack(self, access_token, conversation_id, file_upload, sequence, shot, identifier, version, method):
+        import time
+        prism_user = self.getPrismSlackUsername()
         channel_users = self.slack_user_pools.getChannelUsers(access_token, conversation_id)
-        slack_user = self.getSlackUser(prism_user, channel_users)
+        slack_user = self.getSlackUserId(prism_user, channel_users)
 
-        file_stats = os.stat(file_upload)
-        file_size = file_stats.st_size
+        user_avatar = self.slack_user_info.getUserAvatar(access_token, slack_user)
         
-        url_request = "https://slack.com/api/files.getUploadURLExternal"
-        headers = {
-            "Authorization": f"Bearer {access_token}"
-            }
-        payload = {
-            "filename": file_upload, 
-            "length": file_size
-            }
-        response = requests.get(url_request, headers=headers, params=payload)
+        # Set additional comments for the upload
+        info_dialog = AdditionalInfoDialog()
+        if info_dialog.exec_() == QDialog.Accepted:
+            comment = info_dialog.get_comments()
+            status = info_dialog.get_status()
+        else:
+            self.upload_message.close()
+            return
+        
+        try: 
+            # Upload the file to Slack
+            self.upload = self.slack_upload.uploadContent(access_token, conversation_id, file_upload)
+            
+            # Wait for 2s before posting the message (this is due to the fact that Slack could take a while to process the file)
+            time.sleep(2)
+            
+            # Post the message to the channel
+            self.slack_message.postProgressMessage(access_token, conversation_id, sequence, shot, identifier, version, slack_user, user_avatar, comment, status)
 
-        upload_url = response.json()['upload_url']
-        id = response.json()['file_id']
-
-        with open(file_upload, "rb") as f:
-            files = {"file": f}
-            response = requests.post(upload_url, headers=headers, files=files)
-
-        try:
-            comment_dialog = CommentDialog()
-            if comment_dialog.exec_() == QDialog.Accepted:
-                init_comment = f"Uploaded By: <@{slack_user}>\n"
-                comment = init_comment + comment_dialog.get_comments()
-
-            else:
-                self.upload_message.close()
-                return
-
-            post_url = "https://slack.com/api/files.completeUploadExternal"
-            post_payload = {
-                "files": [{"id": id, "title": file_upload}], 
-                "channel_id": conversation_id
-                }
-
-            response = requests.post(post_url, headers=headers, json=post_payload)
-
+            # Post the successful upload message
             uploaded = True
-            self.successfulPOST(uploaded, method)
-
-            comment_url = 'https://slack.com/api/chat.postMessage'
-            comment_payload = {
-                "channel": conversation_id,
-                "blocks": [
-                    self.slack_blocks.comments(comment),
-                    self.slack_blocks.approval_buttons()
-                ]
-                }
-            requests.post(comment_url, headers=headers, json=comment_payload)
-        
+            SuccessfulPOST(uploaded, method, self.upload_message)
+            
         except Exception as e:
             uploaded = False
-            self.successfulPOST(uploaded, method)
+            print(f"Failed to upload file to Slack: {e}")
+            SuccessfulPOST(uploaded, method, self.upload_message)
 
     # Publish file to Slack
     @err_catcher(name=__name__)
-    def publishToSlack_fromMedia(self, file):
+    def publishToSlack_fromMedia(self, file, identifier, sequence, shot, version):
         current_project = self.core.getConfig("globals", "project_name", configPath=self.core.prismIni).lower()
         
         access_token = self.getAccessToken()
@@ -574,7 +532,7 @@ class Prism_Slack_Functions(object):
         self.upload_message = UploadDialog()
         self.upload_message.show()
 
-        QTimer.singleShot(0, lambda: self.uploadToSlack(access_token, conversation_id, file_upload, method="Media" ))
+        QTimer.singleShot(0, lambda: self.uploadToSlack(access_token, conversation_id, file_upload, sequence, shot, identifier, version, method="Media"))
 
     @err_catcher(name=__name__)
     def publishToSlack_fromSM(self, file):
@@ -590,15 +548,15 @@ class Prism_Slack_Functions(object):
 
         QTimer.singleShot(0, lambda: self.uploadToSlack(access_token, conversation_id, file_upload, method="SM" ))
 
-    def successfulPOST(self, uploaded, method):
-        self.upload_message.close()
+    # def successfulPOST(self, uploaded, method):
+    #     self.upload_message.close()
 
-        if uploaded == True and method == "Media":
-            QMessageBox.information(None, "Slack Upload", "Asset has been uploaded successfully")
-        elif uploaded == False:
-            QMessageBox.warning(None, "Slack Upload", "Failed to upload asset to Slack")
-        else:
-            None        
+    #     if uploaded == True and method == "Media":
+    #         QMessageBox.information(None, "Slack Upload", "Asset has been uploaded successfully")
+    #     elif uploaded == False:
+    #         QMessageBox.warning(None, "Slack Upload", "Failed to upload asset to Slack")
+    #     else:
+    #         None        
 
     @err_catcher(__name__)
     def isStudioLoaded(self):

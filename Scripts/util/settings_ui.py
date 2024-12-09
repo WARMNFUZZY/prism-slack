@@ -162,6 +162,12 @@ class SettingsUI():
             self.lo_status.addWidget(self.l_server_status_value)
             self.lo_status.addStretch()
 
+            self.b_server = QPushButton("Start Server")
+            self.lo_status.addWidget(self.b_server)
+
+            self.b_reset_server = QPushButton("Reset Server")
+            self.lo_status.addWidget(self.b_reset_server)
+
             self.lo_machine = QHBoxLayout()
             self.l_machine = QLabel("Machine: ")
             self.l_machine_value = QLabel("---------")
@@ -190,11 +196,8 @@ class SettingsUI():
             self.lo_button_app_token = QHBoxLayout()
             self.b_app_token = QPushButton("Input App-Level Token")
 
-            self.b_start_server = QPushButton("Start Server")
-
             self.lo_button_app_token.addStretch()
             self.lo_button_app_token.addWidget(self.b_app_token)
-            self.lo_button_app_token.addWidget(self.b_start_server)
             self.lo_button_app_token.addStretch()
 
             self.lo_server.addLayout(self.lo_status)
