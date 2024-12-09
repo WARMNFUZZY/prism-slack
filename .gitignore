@@ -1,3 +1,5 @@
-!**/__pycache__/
-*.pyc
+**/__pycache__/*.pyc
+*.pyc 
 PythonLibs
+Scripts/__pycache__/*.pyc
+Scripts/server/__pycache__/bolt.cpython-311.pyc

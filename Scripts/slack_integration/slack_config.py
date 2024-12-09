@@ -94,3 +94,7 @@ class SlackConfig():
             pipeline_data["slack"]["server"] = {}
         if "app_token" not in pipeline_data["slack"]["server"]:
             pipeline_data["slack"]["server"]["app_token"] = ""
+        if "status" not in pipeline_data["slack"]["server"]:
+            pipeline_data["slack"]["server"]["status"] = ""
+        if "machine" not in pipeline_data["slack"]["server"]:
+            pipeline_data["slack"]["server"]["machine"] = ""

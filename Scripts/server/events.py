@@ -1,160 +1,94 @@
 import requests
 import json
+
+from pprint import pprint 
+from server.blocks import SlackBlocks
+
 class SlackEvents:
-    def __init__(self, app, token):
+    def __init__(self, app, token, blocks):
         self.app = app
         self.token = token
         self.metadata = {}  # Store metadata for thread timestamps
+        self.blocks = SlackBlocks()
+
         
         # Register actions
         self.register_actions()
 
     def register_actions(self):
-        # Listens to incoming messages that contain "hello
-        @self.app.message("hello")
-        def message_hello(message, say):
-            # Post the message with a button
-            response = say(
-                blocks=[
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": f"Hey there <@{message['user']}>!"}
-                    },
-                    {    
-                        "type": "actions",
-                        "elements": [
-                            {
-                                "type": "button",
-                                "text": {"type": "plain_text", "text": "Approved"},
-                                "style": "primary",
-                                "action_id": "button_approved"
-                            },
-                            {
-                                "type": "button",
-                                "text": {"type": "plain_text", "text": "Needs Revised"},
-                                "style": "danger",
-                                "action_id": "button_needs_revised"
-                            },
-                            {
-                                "type": "button",
-                                "text": {"type": "plain_text", "text": "CBB"},
-                                "action_id": "button_cbb"
-                            }
-                        ]
-                    }
-                ],
-                text=f"Hey there <@{message['user']}>!"
-            )
-            from pprint import pprint
-            pprint(response.data)
-            # Save the message timestamp for threading
-            self.app.metadata = {"thread_ts": response.get("ts")}
-            print(self.app.metadata)
 
         @self.app.action("button_approved")
-        def approved_button_click(body, ack):
+        def action_button_approved(body, ack, say):
             ack()
+            from pprint import pprint
+            pprint(body)
+            thread_ts = body['message'].get('ts')
+            blocks = body['message'].get('blocks', [])
+            for block in blocks:
+                for field in block.get('fields', []):
+                    if field.get('text', '').startswith('*Artist:*'):
+                        user_id = field['text'].strip().split(" ")[-1].strip("_<>")
+                        break 
 
-            thread_ts = self.app.metadata.get("thread_ts", None)
-            if thread_ts:
-                url = "https://slack.com/api/chat.postMessage"
-                headers = {
-                    "Authorization": f"Bearer {self.token}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "channel": body["channel"]["id"],
-                    "text": "Your submission has been approved!",
-                    "thread_ts": thread_ts
-                }
+            url = "https://slack.com/api/chat.postMessage"
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+            }
+            payload = {
+                "channel": body["channel"]["id"],
+                "text": "Approved by " f"<@{user_id}>",
+                "thread_ts": thread_ts
+            }
+            response = requests.post(url, headers=headers, json=payload)
 
-            self.post_threaded_message(body, "Your submission has been approved!")
+        @self.app.action("button_needs_revised")
+        def action_button_needs_revised(body, ack, client):
+            ack()
+            pprint("+-"*50)
+            pprint(body)
 
-        # Handles button clicks
-        # @self.app.action("button_click")
-        # def action_button_click(body, ack):
-        #     # Acknowledge the button click
-        #     ack()
-        #     from pprint import pprint
-        #     pprint(self.app.metadata)
-        #     # Retrieve the parent message's timestamp
-        #     thread_ts = self.app.metadata.get("thread_ts", None)
-        #     if thread_ts:
-        #         # Post a threaded reply using the Slack Web API
-        #         url = "https://slack.com/api/chat.postMessage"
-        #         headers = {
-        #             "Authorization": f"Bearer {self.token}",
-        #             "Content-Type": "application/json"
-        #         }
-        #         payload = {
-        #             "channel": body["channel"]["id"],
-        #             "text": "This is a reply in the thread!",
-        #             "thread_ts": thread_ts
-        #         }
-        #         response = requests.post(url, headers=headers, json=payload)
-        #         if response.status_code != 200 or not response.json().get("ok"):
-        #             print(f"Error posting message: {response.json()}")
-        #     else:
-        #         print("Thread timestamp not found.")
+            metadata = json.dumps({
+                "timestamp": body["message"]["ts"],
+                "channel": body["channel"]["id"]
+            })
+            artist = body["user"]["id"]
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view= {
+                    "type": "modal",
+                    "callback_id": "modal-needs-revised",
+                    "title": {"type": "plain_text", "text": "Needs Revised"}, 
+                    "blocks": [
+                        self.blocks.revision_description(artist),
+                        self.blocks.text_input(),
 
+                    ],
+                    "close": {"type": "plain_text", "text": "Cancel"},
+                    "submit": {"type": "plain_text", "text": "Submit"},
+                    "private_metadata": metadata
+                },
+            )
 
+        @self.app.view("modal-needs-revised")
+        def view_submission_needs_revised(ack, body, client):
+            ack()
+            pprint("+-"*50)
+            pprint(body)
+            metadata = json.loads(body["view"]["private_metadata"])
+            user_id = body["user"]["id"]
+            for block in body['view']['blocks']:
+                if 'element' in block and 'action_id' in block['element']:
+                    element_id = block['element']['action_id']
+                    break
+            comments = body["view"]["state"]["values"]["input_comments"][element_id]["value"]
 
-    def approval_buttons(self, channel):
-        # Post a message with interactive buttons
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "channel": channel,
-            "text": "Please review the submission:",
-            "blocks": [
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Approved"},
-                            "style": "primary",
-                            "action_id": "button_approved"
-                        },
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Needs Revised"},
-                            "style": "danger",
-                            "action_id": "button_needs_revised"
-                        },
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "CBB"},
-                            "action_id": "button_cbb"
-                        }
-                    ]
-                }
-            ]
-        }
-        response = requests.post(url, headers=headers, json=payload)
-
-        self.metadata["thread_ts"] = response.json()["ts"]
-
-    def post_threaded_message(self, body, text):
-        # Post a reply in the thread
-        thread_ts = self.metadata.get("thread_ts")
-        if not thread_ts:
-            print("Thread timestamp not found.")
-            return
-
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "channel": body["channel"]["id"],
-            "text": text,
-            "thread_ts": thread_ts
-        }
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code != 200 or not response.json().get("ok"):
-            print(f"Error posting threaded message: {response.json()}")
+            url = "https://slack.com/api/chat.postMessage"
+            headers = {
+                "Authorization": f"Bearer {self.token}",
+            }
+            payload = {
+                "channel": metadata['channel'],
+                "text": f"Marked as: *Needs revised* by <@{user_id}>\n{comments}",
+                "thread_ts": metadata["timestamp"]
+            }
+            response = requests.post(url, headers=headers, json=payload)
