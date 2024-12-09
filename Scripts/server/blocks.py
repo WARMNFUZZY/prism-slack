@@ -87,7 +87,16 @@ class SlackBlocks():
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"Leave some revision comments/notes for <@{artist}>. We will notify them that there are some adjustments needed."
+                "text": f"Uh oh, looks like this needs some love. Leave some revision comments/notes for <@{artist}>."
+            }
+        }
+    
+    def cbb_description(self, artist):
+        return {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"Leave some comments/notes for <@{artist}> and let them know how this can be better, if time allows of course."
             }
         }
 
