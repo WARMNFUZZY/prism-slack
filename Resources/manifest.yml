@@ -1,9 +1,7 @@
-_metadata:
-  major_version: 1
-  minor_version: 1
 display_information:
   name: Prism
-  description: Slack app for Prism integration
+  description: Slack bot for Prism Pipeline
+  background_color: "#0c3300"
 features:
   app_home:
     home_tab_enabled: false
@@ -11,17 +9,30 @@ features:
     messages_tab_read_only_enabled: true
   bot_user:
     display_name: Prism
+    always_online: true
 oauth_config:
   scopes:
     bot:
-      - chat:write
-      - chat:write.customize
-      - chat:write.public
-      - files:write
       - app_mentions:read
+      - channels:history
       - channels:read
-      - search:read
+      - chat:write
+      - chat:write.public
+      - files:read
+      - files:write
+      - groups:history
+      - im:write
+      - channels:join
 settings:
-  org_deployed_enabled: false
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - channel_created
+      - function_executed
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
   socket_mode_enabled: true
-  is_hosted: false
+  token_rotation_enabled: false
