@@ -38,7 +38,6 @@ from Prism_Slack_Variables import Prism_Slack_Variables
 from Prism_Slack_Functions import Prism_Slack_Functions
 from Prism_Slack_externalAccess_Functions import Prism_Slack_externalAccess_Functions
 
-
 class Prism_Slack(
     Prism_Slack_Variables, 
     Prism_Slack_Functions, 
@@ -52,4 +51,3 @@ class Prism_Slack(
         
         Prism_Slack_Functions.__init__(self, core, self)
         Prism_Slack_externalAccess_Functions.__init__(self, core, self)
-

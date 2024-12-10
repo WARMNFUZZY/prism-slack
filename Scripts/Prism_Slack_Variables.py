@@ -37,8 +37,6 @@ import os
 
 class Prism_Slack_Variables(object):
     def __init__(self, core, plugin):
-        self.core = core
-
         self.version = "v2.0.13"
         self.pluginName = "Slack"
         self.pluginType = "Custom"

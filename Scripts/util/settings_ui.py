@@ -20,17 +20,15 @@ class SettingsUI():
             self.lo_slack = QVBoxLayout(self.w_slackTab)
 
             self.createSlackTokenSettingsMenu()
-
             self.createNotificationsSettingsMenu()
-
             self.createServerSettingsMenu()
-
 
             origin.addTab(self.w_slackTab, "Slack")
 
     @err_catcher(__name__)
     def createUserSettingsUI(self, origin):
         if not hasattr(self, "w_slackUserTab"):
+            print('SUI: Starting to Create User Settings UI')
             self.w_slackUserTab = QWidget()
             self.lo_slackUserTab = QVBoxLayout(self.w_slackUserTab)
 
@@ -38,12 +36,12 @@ class SettingsUI():
             self.lo_user = QHBoxLayout()
             self.l_user = QLabel()
             self.l_user.setText("Display Name: ")
-            self.le_user = QLineEdit()
+            self.le_user = QLineEdit(parent=origin)
             self.le_user.setPlaceholderText("Enter your Slack Display Name")
             self.i_userHelp = self.grabHelpIcon()
             self.i_userHelp.setToolTip("""<p style='line-height:1;'>
-                                       Input your Display Name, not your Full Name from your Slack Profile
-                                       </p>""")
+                                    Input your Display Name, not your Full Name from your Slack Profile
+                                    </p>""")
 
             self.lo_user.addWidget(self.l_user)
             self.lo_user.addWidget(self.le_user)

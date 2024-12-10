@@ -1,7 +1,6 @@
 import os
 import subprocess
 import socket
-import threading
 import win32api
 
 from pathlib import Path
@@ -23,40 +22,38 @@ class Prism_Slack_externalAccess_Functions(object):
         self.slack_config = SlackConfig(self.core)
         self.settings_ui = SettingsUI(self.core)
         
-
         if self.isStudioLoaded() is not None:
             self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
+            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
         else:
             self.core.registerCallback("onPluginsLoaded", self.onPluginsLoaded, plugin=self)
-        
-        self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
 
     @err_catcher(name=__name__)
     def onPluginsLoaded(self):
         if self.isStudioLoaded() is not None:
             self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
+            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
         else:
             self.core.registerCallback("projectSettings_loadUI", self.projectSettings_loadUI, plugin=self)
+            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
 
     # Load the UI for the Slack plugin in the studio settings window
     @err_catcher(name=__name__)
     def studioSettings_loadSettings(self, origin, settings):
         self.settings_ui.createSlackSettingsUI(origin, settings)
-        self.setOptions()
+        self.setStudioOptions()
         self.connectEvents()
 
     # Load the UI for the Slack plugin in the project settings window
     @err_catcher(name=__name__)
     def projectSettings_loadUI(self, origin):
         self.settings_ui.createSlackSettingsUI(origin, settings=None)
-        self.setOptions()
-        self.connectEvents()
+        self.setStudioOptions()
 
     @err_catcher(name=__name__)
     def userSettings_loadUI(self, origin):
+        print('EF: userSettings_LoadUI def: Loading User UI Settings')
         self.settings_ui.createUserSettingsUI(origin)
-        self.checkUsername()
-        self.saveUsername()
 
     @err_catcher(name=__name__)
     def checkUsername(self):
@@ -76,6 +73,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def saveUsername(self):
+        print('EF: Saving Username')
         self.le_user = self.settings_ui.le_user
         user_data = self.slack_config.loadConfig('user')
 
@@ -83,7 +81,8 @@ class Prism_Slack_externalAccess_Functions(object):
         self.slack_config.saveConfigSetting(user_data, "user")
 
     @err_catcher(name=__name__)
-    def setOptions(self):
+    def setStudioOptions(self):
+        print('EF: Setting Options')
         # Check for the slack oauth token and assign it in the ui
         self.checkToken()
 
@@ -99,6 +98,8 @@ class Prism_Slack_externalAccess_Functions(object):
         self.checkAppLevelToken()
         self.checkServerStatus()
 
+        self.checkUsername()
+
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_slack_token = self.settings_ui.b_slack_token
@@ -109,6 +110,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         self.b_userSave = self.settings_ui.b_userSave
         self.b_userSave.clicked.connect(self.saveUsername)
+        print('EF: Connected User Save Button')
 
         self.b_app_token = self.settings_ui.b_app_token
         self.b_app_token.clicked.connect(self.inputAppLevelToken)
@@ -261,6 +263,7 @@ class Prism_Slack_externalAccess_Functions(object):
         sub_env["BOLTPATH"] = f"{Path(__file__).resolve().parents[1]}\PythonLibs"
         sub_env["SCRIPTSPATH"] = f"{Path(__file__).resolve().parents[0]}"
         sub_env["PRISMPATH"] = f"{self.core.prismLibs}\PythonLibs\Python3"
+        sub_env["PRISM_CORE"] = f"{self.core.prismLibs}\Scripts"
 
         self.server_status = self.config["slack"]["server"].get("status")
         self.machine = self.config["slack"]["server"].get("machine")
