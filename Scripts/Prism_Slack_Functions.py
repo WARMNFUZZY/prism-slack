@@ -19,9 +19,9 @@ from qtpy.QtWidgets import *
 # from PyQt6 import QtWidgets, QGroupBox, QVBoxLayout, QCheckBox, QComboBox, QLabel, QSpinBox, QFileDialog, QInputDialog, QMessageBox, QAction, QDialog, QTimer
 from server.blocks import SlackBlocks
 
-from slack_integration.slack_config import SlackConfig
-from slack_integration.user_pools import UserPools
-from slack_integration.slack_api import *
+from integration.slack_config import SlackConfig
+from integration.user_pools import UserPools
+from integration.slack_api import *
 
 from util.dialogs import *
 from util.state_manager_ui import StateManagerUI
