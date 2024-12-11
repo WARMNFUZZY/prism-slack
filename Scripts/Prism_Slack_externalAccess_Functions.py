@@ -4,6 +4,7 @@ import socket
 import win32api
 
 from pathlib import Path
+from pprint import pprint
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -24,40 +25,45 @@ class Prism_Slack_externalAccess_Functions(object):
         
         if self.isStudioLoaded() is not None:
             self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
-            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
         else:
             self.core.registerCallback("onPluginsLoaded", self.onPluginsLoaded, plugin=self)
+
+        self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
 
     @err_catcher(name=__name__)
     def onPluginsLoaded(self):
         if self.isStudioLoaded() is not None:
             self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
-            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
         else:
             self.core.registerCallback("projectSettings_loadUI", self.projectSettings_loadUI, plugin=self)
-            self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
+            
+        self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
 
     # Load the UI for the Slack plugin in the studio settings window
     @err_catcher(name=__name__)
     def studioSettings_loadSettings(self, origin, settings):
         self.settings_ui.createSlackSettingsUI(origin, settings)
-        self.setStudioOptions()
-        self.connectEvents()
+        pprint(f"Attributes for origin: {dir(origin)}")
+        self.setStudioOptions(origin)
+        self.connectEvents(origin)
 
     # Load the UI for the Slack plugin in the project settings window
     @err_catcher(name=__name__)
     def projectSettings_loadUI(self, origin):
         self.settings_ui.createSlackSettingsUI(origin, settings=None)
-        self.setStudioOptions()
+        self.setStudioOptions(origin)
+        self.connectEvents(origin)
 
     @err_catcher(name=__name__)
     def userSettings_loadUI(self, origin):
-        print('EF: userSettings_LoadUI def: Loading User UI Settings')
         self.settings_ui.createUserSettingsUI(origin)
+        print("User Settings Added")
+        self.checkUsername(origin)
+        origin.b_userSave.clicked.connect(lambda: self.saveUsername(origin))
 
     @err_catcher(name=__name__)
-    def checkUsername(self):
-        self.le_user = self.settings_ui.le_user
+    def checkUsername(self, origin):
+        le_user = origin.le_user
         user_data = self.slack_config.loadConfig('user')
 
         if "slack" not in user_data:
@@ -65,72 +71,57 @@ class Prism_Slack_externalAccess_Functions(object):
             user_data["slack"]["username"] = ""
         
         if "username" in user_data["slack"]:
-            self.le_user.setText(user_data["slack"].get("username"))
+            le_user.setText(user_data["slack"].get("username"))
         else:
-            self.le_user.setPlaceholderText("Enter your Slack Display Name")
+            le_user.setPlaceholderText("Enter your Slack Display Name")
 
         self.slack_config.saveConfigSetting(user_data, "user")
 
     @err_catcher(name=__name__)
-    def saveUsername(self):
-        print('EF: Saving Username')
-        self.le_user = self.settings_ui.le_user
+    def saveUsername(self, origin):
+        le_user = origin.le_user
         user_data = self.slack_config.loadConfig('user')
 
-        user_data["slack"]["username"] = self.le_user.text()
+        user_data["slack"]["username"] = le_user.text()
         self.slack_config.saveConfigSetting(user_data, "user")
 
     @err_catcher(name=__name__)
-    def setStudioOptions(self):
-        print('EF: Setting Options')
+    def setStudioOptions(self, origin):
         # Check for the slack oauth token and assign it in the ui
-        self.checkToken()
+        self.checkToken(origin)
 
         # Add current methods for notifications and set the current method in the ui
-        self.addNotifyMethods()
-        self.checkNotifyMethod()
+        self.addNotifyMethods(origin)
+        self.checkNotifyMethod(origin)
 
         # Add the current user pools for notifications and set the current user pool in the ui
-        self.addNotifyUserPools()
-        self.checkNotifyUserPool()
+        self.addNotifyUserPools(origin)
+        self.checkNotifyUserPool(origin)
 
         # Check for the app-level token and assign it in the ui
-        self.checkAppLevelToken()
-        self.checkServerStatus()
-
-        self.checkUsername()
+        self.checkAppLevelToken(origin)
+        self.checkServerStatus(origin)
 
     @err_catcher(name=__name__)
-    def connectEvents(self):
-        self.b_slack_token = self.settings_ui.b_slack_token
-        self.b_slack_token.clicked.connect(self.inputToken)
+    def connectEvents(self, origin):
+        origin.b_slack_token.clicked.connect(lambda: self.inputToken(origin))
+        origin.cb_notify_user_pool.currentIndexChanged.connect(lambda index: self.UpdateNotifyUserPool(origin, index))
+        origin.cb_notify_method.currentIndexChanged.connect(lambda index: self.updateNotifyMethod(origin, index))
         
-        self.cb_notify_user_pool.currentIndexChanged.connect(self.UpdateNotifyUserPool)
-        self.cb_notify_method.currentIndexChanged.connect(self.updateNotifyMethod)
-
-        self.b_userSave = self.settings_ui.b_userSave
-        self.b_userSave.clicked.connect(self.saveUsername)
-        print('EF: Connected User Save Button')
-
-        self.b_app_token = self.settings_ui.b_app_token
-        self.b_app_token.clicked.connect(self.inputAppLevelToken)
-
-        self.b_server = self.settings_ui.b_server
-        self.b_server.clicked.connect(self.toggleServer)
-
-        self.b_reset_server = self.settings_ui.b_reset_server
-        self.b_reset_server.clicked.connect(self.resetServerStatus)
-
+        origin.b_app_token.clicked.connect(lambda: self.inputAppLevelToken(origin))
+        origin.b_server.clicked.connect(lambda: self.toggleServer(origin))
+        origin.b_reset_server.clicked.connect(lambda: self.resetServerStatus(origin))
+        
     @err_catcher(name=__name__)
-    def addNotifyMethods(self):
+    def addNotifyMethods(self, origin):
         methods = ["Direct", "Channel", "Ephemeral Direct", "Ephemeral Channel"]
         
-        self.cb_notify_method = self.settings_ui.cb_notify_method
-        self.cb_notify_method.addItems(methods)
+        cb_notify_method = origin.cb_notify_method
+        cb_notify_method.addItems(methods)
     
     @err_catcher(name=__name__)
-    def updateNotifyMethod(self, index):
-        notify_method = self.cb_notify_method.currentText()
+    def updateNotifyMethod(self, origin, index):
+        notify_method = origin.cb_notify_method.currentText()
         pipeline_data = self.slack_config.loadConfig("studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
@@ -140,19 +131,19 @@ class Prism_Slack_externalAccess_Functions(object):
         self.slack_config.saveConfigSetting(pipeline_data, "studio")
 
     @err_catcher(name=__name__)
-    def checkNotifyMethod(self):
+    def checkNotifyMethod(self, origin):
         pipeline_data = self.slack_config.loadConfig("studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
         if "method" in pipeline_data["slack"]["notifications"]:
             notify_method = pipeline_data["slack"]["notifications"].get("method")
-            self.cb_notify_method.setCurrentText(notify_method)
+            origin.cb_notify_method.setCurrentText(notify_method)
         else:
             notify_method = None
 
     @err_catcher(name=__name__)
-    def addNotifyUserPools(self):
-        self.cb_notify_user_pool = self.settings_ui.cb_notify_user_pool
+    def addNotifyUserPools(self, origin):
+        cb_notify_user_pool = origin.cb_notify_user_pool
         
         user_pool = []
 
@@ -160,11 +151,12 @@ class Prism_Slack_externalAccess_Functions(object):
             user_pool.append("Studio")
         user_pool.append("Channel")
 
-        self.cb_notify_user_pool.addItems(user_pool)
+        cb_notify_user_pool.addItems(user_pool)
 
     @err_catcher(name=__name__)
-    def UpdateNotifyUserPool(self, index):
-        notify_user_pool = self.cb_notify_user_pool.currentText()
+    def UpdateNotifyUserPool(self, origin, index):
+        cb_notify_user_pool = origin.cb_notify_user_pool
+        notify_user_pool = cb_notify_user_pool.currentText()
         pipeline_data = self.slack_config.loadConfig("studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
@@ -175,48 +167,47 @@ class Prism_Slack_externalAccess_Functions(object):
     
     # Check the method of notification to Slack users
     @err_catcher(name=__name__)
-    def checkNotifyUserPool(self):
+    def checkNotifyUserPool(self, origin):
+        cb_notify_user_pool = origin.cb_notify_user_pool
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
         if "user_pool" in pipeline_data["slack"]["notifications"]:
             notify_user_pool = pipeline_data["slack"]["notifications"].get("user_pool")
-            self.cb_notify_user_pool.setCurrentText(notify_user_pool)
+            cb_notify_user_pool.setCurrentText(notify_user_pool)
         else:
             notify_user_pool = None
 
     # Pop up a dialog to input the Slack API token
     @err_catcher(name=__name__)
-    def inputToken(self):
+    def inputToken(self, origin):
+        le_slack_token = origin.le_slack_token
         input_dialog = InputDialog(title="Enter your Slack API Token")
         if input_dialog.exec_() == QDialog.Accepted:
             text = input_dialog.get_input()
             slack_token = text
-            self.le_slack_token.setText(slack_token)
+            le_slack_token.setText(slack_token)
             self.saveToken(slack_token)
     
     # Check if the Slack API token is present in the pipeline configuration file
     @err_catcher(name=__name__)
-    def checkToken(self):
-        self.le_slack_token = self.settings_ui.le_slack_token
+    def checkToken(self, origin):
+        le_slack_token = origin.le_slack_token
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
         
         if "token" not in pipeline_data["slack"]:
-            self.le_slack_token.setPlaceholderText("Enter your Slack API Token")
+            le_slack_token.setPlaceholderText("Enter your Slack API Token")
 
         token = pipeline_data["slack"]["token"]
-        self.le_slack_token.setText(token)
+        le_slack_token.setText(token)
 
     # Save the token in the pipeline configuration file
     @err_catcher(name=__name__)
     def saveToken(self, token):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
-
-        if "token" in pipeline_data["slack"]:
-            pipeline_data["slack"]["token"] = token
-        
+        pipeline_data["slack"]["token"] = token
         self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
     @err_catcher(name=__name__)
@@ -239,16 +230,15 @@ class Prism_Slack_externalAccess_Functions(object):
             self.saveAppLevelToken(app_token)
 
     @err_catcher(name=__name__)
-    def checkAppLevelToken(self):
-        self.le_app_token = self.settings_ui.le_app_token
+    def checkAppLevelToken(self, origin):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
         if "app_token" not in pipeline_data["slack"]["server"]:
-            self.le_app_token.setPlaceholderText("Enter your Slack App-Level Token")
-        
-        app_token = pipeline_data["slack"]["server"]["app_token"]
-        self.le_app_token.setText(app_token)
+            origin.le_app_token.setPlaceholderText("Enter your Slack App-Level Token")
+
+        app_token = pipeline_data["slack"]["server"].get("app_token", "")
+        origin.le_app_token.setText(app_token)
 
     @err_catcher(name=__name__)
     def startServer(self):
@@ -332,26 +322,15 @@ class Prism_Slack_externalAccess_Functions(object):
             return
 
     @err_catcher(name=__name__)
-    def checkServerStatus(self):
-        self.config = self.slack_config.loadConfig(mode="studio")
-        self.slack_config.checkSlackOptions(self.config)
+    def checkServerStatus(self, origin):
+        pipeline_data = self.slack_config.loadConfig(mode="studio")
+        self.slack_config.checkSlackOptions(pipeline_data)
 
-        self.l_server_status_value = self.settings_ui.l_server_status_value
-        self.l_machine_value = self.settings_ui.l_machine_value
+        status = pipeline_data["slack"]["server"].get("status", "Not running")
+        machine = pipeline_data["slack"]["server"].get("machine", "---------")
 
-        if 'status' in self.config['slack']['server']:
-            self.server_status = self.config['slack']['server'].get('status')
-            if self.server_status == "":
-                self.l_server_status_value.setText("Not running")
-            else:
-                self.l_server_status_value.setText(self.server_status)
-
-        if 'machine' in self.config['slack']['server']:
-            self.server_machine = self.config['slack']['server'].get('machine')
-            if self.server_machine == "":
-                self.l_machine_value.setText("---------")
-            else:
-                self.l_machine_value.setText(self.server_machine)
+        origin.l_server_status_value.setText(status)
+        origin.l_machine_value.setText(machine)
 
     @err_catcher(name=__name__)
     def toggleServer(self):
@@ -376,5 +355,4 @@ class Prism_Slack_externalAccess_Functions(object):
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)
     def isStudioLoaded(self):
-        studio = self.core.getPlugin("Studio") 
-        return studio
+        return self.core.getPlugin("Studio") 
