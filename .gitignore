@@ -2,4 +2,6 @@
 *.pyc 
 PythonLibs
 Scripts/__pycache__/*.pyc
-Scripts/server/__pycache__/bolt.cpython-311.pyc
+Scripts/server/__pycache__/**
+Scripts/integration/__pycache__/**
+Scripts/utils/__pycache__/**
