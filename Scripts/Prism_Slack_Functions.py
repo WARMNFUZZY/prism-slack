@@ -43,7 +43,6 @@ class Prism_Slack_Functions(object):
         self.slack_blocks = SlackBlocks()
         self.convert_image_sequence = ConvertImageSequence(self.core)
 
-        self.core.registerCallback("mediaBrowserContextMenuRequested", self.mediaPlayerContextMenuRequested, plugin=self)
         self.core.registerCallback("mediaPlayerContextMenuRequested", self.mediaPlayerContextMenuRequested, plugin=self)
         self.core.registerCallback("onStateStartup", self.onStateStartup, plugin=self)
         self.core.registerCallback("postPlayblast", self.postPlayblast, plugin=self)
@@ -259,25 +258,6 @@ class Prism_Slack_Functions(object):
         action.setIcon(icon)
 
     @err_catcher(name=__name__)
-    def mediaBrowserContextMenuRequested(self, origin, menu):
-        if not type(origin.origin).__name__ == "MediaBrowser":   
-            return
-        
-        action = QAction("Publish to Slack", origin)
-        iconPath = os.path.join(self.pluginDirectory, "Resources", "slack-icon.png")
-        icon = self.core.media.getColoredIcon(iconPath)
-
-        action.triggered.connect(lambda: self.publishToSlack_fromMedia(
-            origin.seq, 
-            self.identifier, 
-            self.sequence, 
-            self.shot, 
-            self.version))
-
-        menu.insertAction(menu.actions()[-1], action)
-        action.setIcon(icon)
-
-    @err_catcher(name=__name__)
     def createSlackSubmenu(self, toggled, state):
         self.state_manager_ui = StateManagerUI(self.core)
         # If the group box is toggled on
@@ -423,7 +403,18 @@ class Prism_Slack_Functions(object):
 
         message = self.getMessage(slack_user, seq, shot, product, sender)
 
-        self.slack_message.postChannelMessage(access_token, channel, message)
+        pipeline_data = self.slack_config.loadConfig("studio")
+        method = pipeline_data["slack"]["notifications"].get("method")
+
+        if method.lower() == "channel":
+            self.slack_message.postChannelMessage(access_token, channel, message)
+        elif method.lower() == "direct":
+            self.slack_message.postDirectMessage(access_token, slack_user, message)
+        elif method.lower() == "ephmeral direct":
+            self.slack_message.postEphemeralDirectMessage(access_token, slack_user, message)
+        else:
+            self.slack_message.postChannelEphemeralMessage(access_token, slack_user, channel, message)
+        
 
     @err_catcher(name=__name__)
     def getMessage(self, slack_user, seq, shot, product, sender):
@@ -491,7 +482,12 @@ class Prism_Slack_Functions(object):
     def publishToSlack_fromMedia(self, file, identifier, sequence, shot, version):
         current_project = self.core.getConfig("globals", "project_name", configPath=self.core.prismIni).lower()
         
-        access_token = self.getAccessToken()
+        try:
+            access_token = self.getAccessToken()
+        except:
+            self.core.popup("Failed to retrieve Slack access token. Please check your configuration.")
+            return
+        
         conversation_id = self.getChannelId(access_token, current_project)
 
         file_upload = file[0]
@@ -511,7 +507,12 @@ class Prism_Slack_Functions(object):
     def publishToSlack_fromSM(self, file, identifier, state):
         current_project = self.core.getConfig("globals", "project_name", configPath=self.core.prismIni).lower()
         
-        access_token = self.getAccessToken()
+        try:
+            access_token = self.getAccessToken()
+        except:
+            self.core.popup("Failed to retrieve Slack access token. Please check your configuration.")
+            return
+        
         conversation_id = self.getChannelId(access_token, current_project)
         file_upload = file[0]
         file_upload.replace("\\", "/")

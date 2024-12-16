@@ -67,7 +67,7 @@ class UserPools():
         data = studio.getStudioUsers()
         users = []
         for user in data:
-            if user.get('role') in ['admin', 'manager', 'artist']:
+            if user.get('role') not in ['deactivated']:
                 users.append(user.get('name'))
         
         return users

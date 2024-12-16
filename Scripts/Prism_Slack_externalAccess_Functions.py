@@ -43,7 +43,7 @@ class Prism_Slack_externalAccess_Functions(object):
     # Load the UI for the Slack plugin in the studio settings window
     @err_catcher(name=__name__)
     def studioSettings_loadSettings(self, origin, settings):
-        self.settings_ui.createSlackSettingsUI(origin, settings)
+        self.settings_ui.createSlackStudioSettingsUI(origin, settings)
         pprint(f"Attributes for origin: {dir(origin)}")
         self.setStudioOptions(origin)
         self.connectEvents(origin)
@@ -51,7 +51,7 @@ class Prism_Slack_externalAccess_Functions(object):
     # Load the UI for the Slack plugin in the project settings window
     @err_catcher(name=__name__)
     def projectSettings_loadUI(self, origin):
-        self.settings_ui.createSlackSettingsUI(origin, settings=None)
+        self.settings_ui.createSlackProjectSettingsUI(origin, settings=None)
         self.setStudioOptions(origin)
         self.connectEvents(origin)
 
@@ -64,50 +64,53 @@ class Prism_Slack_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def systemTrayContextMenuRequested(self, origin, menu):
-        pipeline_data = self.slack_config.loadConfig(mode="studio")
-        server_status = pipeline_data["slack"]["server"].get("status")
-        server_machine = pipeline_data["slack"]["server"].get("machine")
+        studio_path = self.core.getPlugin("Studio").getStudioConfigPath()
+        if studio_path is not None:
 
-        if server_status == "":
-            server_status = "Not running"
+            pipeline_data = self.slack_config.loadConfig(mode="studio")
+            server_status = pipeline_data["slack"]["server"].get("status")
+            server_machine = pipeline_data["slack"]["server"].get("machine")
 
-        self.slackMenu = QMenu(f"Slack Server")
-        
-        plugin_directory = Path(__file__).resolve().parents[1]
-        self.slack_icon = QIcon(os.path.join(plugin_directory, "Resources", "slack-icon.png"))
-        self.slackMenu.setIcon(self.slack_icon)
-        
-        self.statusServerAction = QAction(server_status)
-        
-        if server_status == "Running":
-            self.slack_server_running_icon = QIcon(os.path.join(plugin_directory, "Resources", "running.png"))
-            self.statusServerAction.setIcon(self.slack_server_running_icon)        
-        else:
-            self.slack_server_stopped_icon = QIcon(os.path.join(plugin_directory, "Resources", "stopped.png"))
-            self.statusServerAction.setIcon(self.slack_server_stopped_icon)
-        
-        self.stopServerAction = QAction("Stop Server")
-        self.stopServerAction.triggered.connect(self.slackTrayToggle)
-        self.startServerAction = QAction("Start Server")
-        self.startServerAction.triggered.connect(self.slackTrayToggle)
+            if server_status == "":
+                server_status = "Not running"
 
-        if server_status == "Running" and server_machine == socket.gethostname():
-            self.stopServerAction.setEnabled(True)
-            self.startServerAction.setEnabled(False)
-        else:
-            self.stopServerAction.setEnabled(False)
-            self.startServerAction.setEnabled(True)
-        
-        if server_status == "Running" and server_machine != socket.gethostname():
-            self.dialogs = ServerNonWarning()
-            self.dialogs.exec_()
-        
-        self.slackMenu.addAction(self.statusServerAction)
-        self.slackMenu.addAction(self.startServerAction)
-        self.slackMenu.addAction(self.stopServerAction)
-        # menu.addMenu(self.slackMenu)
-        tray_actions = menu.actions()[0]
-        menu.insertMenu(tray_actions, self.slackMenu)
+            self.slackMenu = QMenu(f"Slack Server")
+            
+            plugin_directory = Path(__file__).resolve().parents[1]
+            self.slack_icon = QIcon(os.path.join(plugin_directory, "Resources", "slack-icon.png"))
+            self.slackMenu.setIcon(self.slack_icon)
+            
+            self.statusServerAction = QAction(server_status)
+            
+            if server_status == "Running":
+                self.slack_server_running_icon = QIcon(os.path.join(plugin_directory, "Resources", "running.png"))
+                self.statusServerAction.setIcon(self.slack_server_running_icon)        
+            else:
+                self.slack_server_stopped_icon = QIcon(os.path.join(plugin_directory, "Resources", "stopped.png"))
+                self.statusServerAction.setIcon(self.slack_server_stopped_icon)
+            
+            self.stopServerAction = QAction("Stop Server")
+            self.stopServerAction.triggered.connect(self.slackTrayToggle)
+            self.startServerAction = QAction("Start Server")
+            self.startServerAction.triggered.connect(self.slackTrayToggle)
+
+            if server_status == "Running" and server_machine == socket.gethostname():
+                self.stopServerAction.setEnabled(True)
+                self.startServerAction.setEnabled(False)
+            else:
+                self.stopServerAction.setEnabled(False)
+                self.startServerAction.setEnabled(True)
+            
+            if server_status == "Running" and server_machine != socket.gethostname():
+                self.dialogs = ServerNonWarning()
+                self.dialogs.exec_()
+            
+            self.slackMenu.addAction(self.statusServerAction)
+            self.slackMenu.addAction(self.startServerAction)
+            self.slackMenu.addAction(self.stopServerAction)
+            # menu.addMenu(self.slackMenu)
+            tray_actions = menu.actions()[0]
+            menu.insertMenu(tray_actions, self.slackMenu)
 
     @err_catcher(name=__name__)
     def slackTrayToggle(self):
@@ -160,20 +163,24 @@ class Prism_Slack_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def setStudioOptions(self, origin):
-        # Check for the slack oauth token and assign it in the ui
-        self.checkToken(origin)
+        if self.core.getPlugin('Studio').getStudioConfigPath() is not None:
+            # Check for the slack oauth token and assign it in the ui
+            self.checkToken(origin)
 
-        # Add current methods for notifications and set the current method in the ui
-        self.addNotifyMethods(origin)
-        self.checkNotifyMethod(origin)
+            # Add current methods for notifications and set the current method in the ui
+            self.addNotifyMethods(origin)
+            self.checkNotifyMethod(origin)
 
-        # Add the current user pools for notifications and set the current user pool in the ui
-        self.addNotifyUserPools(origin)
-        self.checkNotifyUserPool(origin)
+            # Add the current user pools for notifications and set the current user pool in the ui
+            self.addNotifyUserPools(origin)
+            self.checkNotifyUserPool(origin)
 
-        # Check for the app-level token and assign it in the ui
-        self.checkAppLevelToken(origin)
-        self.checkServerStatus(origin)
+            # Check for the app-level token and assign it in the ui
+            self.checkAppLevelToken(origin)
+            self.checkServerStatus(origin)
+        else:
+            self.dialogs = SlackStudioPathNotFound()
+            self.dialogs.exec_()
 
     @err_catcher(name=__name__)
     def connectEvents(self, origin):

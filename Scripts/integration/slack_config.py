@@ -49,16 +49,18 @@ class SlackConfig():
         else:
             self.core.popup('Cannot retrieve configuration file')
             return
-        
-        # If the pipeline file doesn't exist, create it and initialize the slack token field
-        if not os.path.exists(pipeline_file):
-            os.makedirs(os.path.dirname(pipeline_file), exist_ok=True)
-            with open(pipeline_file, "w") as f:
-                json.dump({"slack": {"token": ""}}, f, indent=4)
+        try:
+            # If the pipeline file doesn't exist, create it and initialize the slack token field
+            if not os.path.exists(pipeline_file):
+                os.makedirs(os.path.dirname(pipeline_file), exist_ok=True)
+                with open(pipeline_file, "w") as f:
+                    json.dump({"slack": {"token": ""}}, f, indent=4)
 
-        # Load and read the file
-        with open(pipeline_file, "r") as f:
-            return json.load(f)
+            # Load and read the file
+            with open(pipeline_file, "r") as f:
+                return json.load(f)
+        except:
+            return
         
     # Save the settings to the slack configuration file
     @err_catcher(__name__)

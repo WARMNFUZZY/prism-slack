@@ -14,7 +14,7 @@ class SettingsUI():
 
     # Create the UI for the Slack plugin
     @err_catcher(__name__)
-    def createSlackSettingsUI(self, origin, settings):
+    def createSlackStudioSettingsUI(self, origin, settings):
         if not hasattr(origin, "w_slackStudioTab"):
             origin.w_slackStudioTab = QWidget()
             lo_slack = QVBoxLayout(origin.w_slackStudioTab)
@@ -24,6 +24,33 @@ class SettingsUI():
             self.createServerSettingsMenu(lo_slack, origin)
 
             origin.addTab(origin.w_slackStudioTab, "Slack")
+
+    @err_catcher(__name__)
+    def createSlackProjectSettingsUI(self, origin, settings):
+        if not hasattr(origin, "w_slackProjectTab"):
+            origin.w_slackProjectTab = QWidget()
+            lo_slack = QVBoxLayout(origin.w_slackProjectTab)
+
+            self.createSlackTokenSettingsMenu(lo_slack, origin)
+            self.createNotificationsSettingsMenu(lo_slack, origin)
+            self.createCustomChannelUI(lo_slack, origin, settings)
+            self.createServerSettingsMenu(lo_slack, origin)
+
+            origin.addTab(origin.w_slackProjectTab, "Slack")
+
+    @err_catcher(__name__)
+    def createCustomChannelUI(self, lo_slack, origin, settings):
+        gb_custom_channel = QGroupBox()
+        lo_custom_channel = QHBoxLayout()
+        gb_custom_channel.setLayout(lo_custom_channel)
+
+        origin.l_custom_channel = QLabel("Custom Notification Channel: ")
+        origin.le_custom_channel = QLineEdit()
+
+        lo_custom_channel.addWidget(origin.l_custom_channel)
+        lo_custom_channel.addWidget(origin.le_custom_channel)
+
+        lo_slack.addWidget(gb_custom_channel)
 
     @err_catcher(__name__)
     def createUserSettingsUI(self, origin):
