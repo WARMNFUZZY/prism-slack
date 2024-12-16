@@ -147,7 +147,12 @@ class Prism_Slack_Functions(object):
         global state 
         state = kwargs.get('state', None)
 
-        access_token = self.getAccessToken()
+        try:
+            access_token = self.getAccessToken()
+        except:
+            self.core.popup("Failed to retrieve Slack access token. Please check your configuration.")
+            return
+        
         if state.gb_slack.isChecked():
             if state.chb_slackNotify.isChecked():
                 notify_user = state.cb_userPool.currentText()
