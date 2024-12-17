@@ -227,8 +227,8 @@ class Prism_Slack_externalAccess_Functions(object):
         
         user_pool = []
 
-        if self.isStudioLoaded():
-            user_pool.append("Studio")
+        # if self.isStudioLoaded():
+        #     user_pool.append("Studio")
         user_pool.append("Channel")
 
         cb_notify_user_pool.addItems(user_pool)
