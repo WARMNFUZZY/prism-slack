@@ -10,10 +10,10 @@
 </div>
   
 > [!IMPORTANT]  
-> As this readme continues to grow, full docs will be migrated to a designated location that will be provided in the near future.  
+> Full Documentation can be found here: https://coda.io/@wf-jkesig/warmn-fuzzy-slack-plugin
   
 > [!WARNING]
-> This plugin is going to be getting reorganized for modularity. It is getting too big to only be primarily 2 files. Major updates are planned.  
+> This plugin is going to be getting reorganized for modularity. Originally this was suited to just the few files that can be found in most Prism plugins, but its getting harder to manage this way. 
   
     
 ## Table of Contents  

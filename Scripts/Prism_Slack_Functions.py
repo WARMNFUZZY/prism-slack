@@ -152,7 +152,7 @@ class Prism_Slack_Functions(object):
         except:
             self.core.popup("Failed to retrieve Slack access token. Please check your configuration.")
             return
-        
+            
         if state.gb_slack.isChecked():
             if state.chb_slackNotify.isChecked():
                 notify_user = state.cb_userPool.currentText()
@@ -264,39 +264,43 @@ class Prism_Slack_Functions(object):
 
     @err_catcher(name=__name__)
     def createSlackSubmenu(self, toggled, state):
-        self.state_manager_ui = StateManagerUI(self.core)
-        # If the group box is toggled on
-        if toggled:
-            if not hasattr(state, 'cb_userPool'):
-                self.state_manager_ui.createStateManagerSlackUI(state)
-
-                self.populateUserPool(state)
-
-        else:
-            layout = state.gb_slack.layout()
-            self.state_manager_ui.removeCleanupLayout(layout, 'lo_slack_publish', state)
-            self.state_manager_ui.removeCleanupLayout(layout, 'lo_slack_notify', state)
+        try:
+            self.state_manager_ui = StateManagerUI(self.core)
+            # If the group box is toggled on
+            if toggled:
+                if not hasattr(state, 'cb_userPool'):
+                    self.state_manager_ui.createStateManagerSlackUI(state)
+                    self.populateUserPool(state)
+            else:
+                layout = state.gb_slack.layout()
+                self.state_manager_ui.removeCleanupLayout(layout, 'lo_slack_publish', state)
+                self.state_manager_ui.removeCleanupLayout(layout, 'lo_slack_notify', state)
+        except Exception as e:
+            self.core.popup(f"Failed to create Slack submenu. Please check your configuration")
 
     @err_catcher(name=__name__)
     def populateUserPool(self, state):
-        access_token = self.getAccessToken()
-        proj = self.getCurrentProject()
-        channel_id = self.getChannelId(access_token, proj)
+        try:
+            access_token = self.getAccessToken()
+            proj = self.getCurrentProject()
+            channel_id = self.getChannelId(access_token, proj)
 
-        notify_user_pool = self.getNotifyUserPool().lower()
-        users = []
-        if notify_user_pool == "studio":
-            users = self.slack_user_pools.getStudioUsers(state)
-        
-        elif notify_user_pool == "channel":
-            members = self.slack_user_pools.getChannelUsers(access_token, channel_id)
-            users = [member['display_name'] for member in members]
-        
-        elif notify_user_pool == "team":
-            members = self.slack_user_pools.getTeamUsers(access_token)
-            users = [member['display_name'] for member in members]
+            notify_user_pool = self.getNotifyUserPool().lower()
+            users = []
+            if notify_user_pool == "studio":
+                users = self.slack_user_pools.getStudioUsers(state)
+            
+            elif notify_user_pool == "channel":
+                members = self.slack_user_pools.getChannelUsers(access_token, channel_id)
+                users = [member['display_name'] for member in members]
+            
+            elif notify_user_pool == "team":
+                members = self.slack_user_pools.getTeamUsers(access_token)
+                users = [member['display_name'] for member in members]
 
-        state.cb_userPool.addItems(users)
+            state.cb_userPool.addItems(users)
+        except Exception as e:
+            print(f"Failed to populate user pool: {e}")
 
     # remove widgets and cleanup sub-layouts when the group box is toggled off
     @err_catcher(name=__name__)

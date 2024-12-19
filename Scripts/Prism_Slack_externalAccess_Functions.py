@@ -43,8 +43,10 @@ class Prism_Slack_externalAccess_Functions(object):
     # Load the UI for the Slack plugin in the studio settings window
     @err_catcher(name=__name__)
     def studioSettings_loadSettings(self, origin, settings):
+        if self.core.getPlugin('Studio').getStudioConfigPath() is None:
+            SlackStudioPathNotFound().exec_()
+            return
         self.settings_ui.createSlackStudioSettingsUI(origin, settings)
-        pprint(f"Attributes for origin: {dir(origin)}")
         self.setStudioOptions(origin)
         self.connectEvents(origin)
 
@@ -90,8 +92,9 @@ class Prism_Slack_externalAccess_Functions(object):
                 self.statusServerAction.setIcon(self.slack_server_stopped_icon)
             
             self.stopServerAction = QAction("Stop Server")
-            self.stopServerAction.triggered.connect(self.slackTrayToggle)
             self.startServerAction = QAction("Start Server")
+
+            self.stopServerAction.triggered.connect(self.slackTrayToggle)
             self.startServerAction.triggered.connect(self.slackTrayToggle)
 
             if server_status == "Running" and server_machine == socket.gethostname():
@@ -101,14 +104,10 @@ class Prism_Slack_externalAccess_Functions(object):
                 self.stopServerAction.setEnabled(False)
                 self.startServerAction.setEnabled(True)
             
-            if server_status == "Running" and server_machine != socket.gethostname():
-                self.dialogs = ServerNonWarning()
-                self.dialogs.exec_()
-            
             self.slackMenu.addAction(self.statusServerAction)
             self.slackMenu.addAction(self.startServerAction)
             self.slackMenu.addAction(self.stopServerAction)
-            # menu.addMenu(self.slackMenu)
+            
             tray_actions = menu.actions()[0]
             menu.insertMenu(tray_actions, self.slackMenu)
 
@@ -163,7 +162,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def setStudioOptions(self, origin):
-        if self.core.getPlugin('Studio').getStudioConfigPath() is not None:
+        try:
             # Check for the slack oauth token and assign it in the ui
             self.checkToken(origin)
 
@@ -178,9 +177,8 @@ class Prism_Slack_externalAccess_Functions(object):
             # Check for the app-level token and assign it in the ui
             self.checkAppLevelToken(origin)
             self.checkServerStatus(origin)
-        else:
-            self.dialogs = SlackStudioPathNotFound()
-            self.dialogs.exec_()
+        except Exception as e:
+            print(f"Error setting studio options: {e}")
 
     @err_catcher(name=__name__)
     def connectEvents(self, origin):
