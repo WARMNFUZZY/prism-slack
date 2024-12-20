@@ -50,33 +50,36 @@ class SlackEvents:
             ack()
             
             thread_ts = body['message'].get('ts')
-            blocks = body['message'].get('blocks', [])
-            for block in blocks:
-                for field in block.get('fields', []):
-                    if field.get('text', '').startswith('*Artist:*'):
-                        user_id = field['text'].strip().split(" ")[-1].strip("_<>")
-                        break 
-
+            
             url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {self.token}",
             }
             payload = {
                 "channel": body["channel"]["id"],
-                "text": "Marked as: Approved by " f"<{user_id}>",
+                "text": "Marked as: Approved by " f"<@{body['user']['id']}>",
                 "thread_ts": thread_ts
             }
             response = requests.post(url, headers=headers, json=payload)
 
+        # When the Needs Revised Button is clicked, gather information and open the Modal window
         @self.app.action("button_needs_revised")
         def action_button_needs_revised(body, ack, client):
             ack()
 
             metadata = json.dumps({
                 "timestamp": body["message"]["ts"],
-                "channel": body["channel"]["id"]
+                "channel": body["channel"]["id"],
+                "reviewer": body["user"]["id"]
             })
-            artist = body["user"]["id"]
+
+            blocks = body['message'].get('blocks', [])
+            for block in blocks:
+                for field in block.get('fields', []):
+                    if field.get('text', '').startswith('*Artist:*'):
+                        artist = field['text'].strip().split(" ")[-1].strip("_<@>")
+                        break 
+
             client.views_open(
                 trigger_id=body["trigger_id"],
                 view= {
@@ -94,12 +97,13 @@ class SlackEvents:
                 },
             )
 
+        # When the Needs Revised Submit Button is clicked, close the Modal window and make a Threaded response
         @self.app.view("modal-needs-revised")
         def view_submission_needs_revised(ack, body, client):
             ack()
 
             metadata = json.loads(body["view"]["private_metadata"])
-            user_id = body["user"]["id"]
+            reviewer = body["user"]["id"]
             for block in body['view']['blocks']:
                 if 'element' in block and 'action_id' in block['element']:
                     element_id = block['element']['action_id']
@@ -112,20 +116,29 @@ class SlackEvents:
             }
             payload = {
                 "channel": metadata['channel'],
-                "text": f"Marked as: *Needs revised* by <@{user_id}>\n\n{comments}",
+                "text": f"Marked as: *Needs revised* by <@{reviewer}>\n\n{comments}",
                 "thread_ts": metadata["timestamp"]
             }
             response = requests.post(url, headers=headers, json=payload)
 
+        # When the CBB Button is clicked, gather information and open the Modal window
         @self.app.action("button_cbb")
         def action_button_cbb(body, ack, client):
             ack()
 
             metadata = json.dumps({
                 "timestamp": body["message"]["ts"],
-                "channel": body["channel"]["id"]
+                "channel": body["channel"]["id"],
+                "reviewer": body["user"]["id"]
             })
-            artist = body["user"]["id"]
+
+            blocks = body['message'].get('blocks', [])
+            for block in blocks:
+                for field in block.get('fields', []):
+                    if field.get('text', '').startswith('*Artist:*'):
+                        artist = field['text'].strip().split(" ")[-1].strip("_<@>")
+                        break 
+
             client.views_open(
                 trigger_id=body["trigger_id"],
                 view= {
@@ -143,12 +156,14 @@ class SlackEvents:
                 },
             )
 
+        # When the CBB Submit Button is clicked, close the Modal window and make a Threaded response
         @self.app.view("modal-cbb")
         def view_submission_cbb(ack, body, client):
             ack()
 
             metadata = json.loads(body["view"]["private_metadata"])
-            user_id = body["user"]["id"]
+            reviewer = body["user"]["id"]
+            
             for block in body['view']['blocks']:
                 if 'element' in block and 'action_id' in block['element']:
                     element_id = block['element']['action_id']
@@ -161,7 +176,7 @@ class SlackEvents:
             }
             payload = {
                 "channel": metadata['channel'],
-                "text": f"Marked as: *CBB* by <@{user_id}>\n\n{comments}",
+                "text": f"Marked as: *CBB* by <@{reviewer}>\n\n{comments}",
                 "thread_ts": metadata["timestamp"]
             }
             response = requests.post(url, headers=headers, json=payload)
