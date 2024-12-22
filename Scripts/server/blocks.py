@@ -1,14 +1,9 @@
+# This file is purely used to reduce the amount of overhead in files by grabbing predetermined blocks used for uploading to Slack
 class SlackBlocks():
     def __init__(self):
         pass
 
-    # def profile_accessory(self, user_avatar):
-    #     return {
-    #         "type": "image",
-    #         "image_url": user_avatar,
-    #         "alt_text": "User profile picture"
-    #     }
-    
+    # Set the Identifier Information for the publishing block
     def identifier_information(self, sequence, shot, identifier, version, artist, user_avatar, status):
         return {
             "type": "section",
@@ -46,6 +41,7 @@ class SlackBlocks():
             }
         }
     
+    # Set the Product Information for the publishing block
     def product_information(self, asset, task, product, version, artist):
         return {
             "type": "section",
@@ -73,6 +69,7 @@ class SlackBlocks():
             ]
         }
     
+    # Set the Comments for the publishing block
     def comments(self, comments):
         return {
             "type": "section",
@@ -82,6 +79,7 @@ class SlackBlocks():
             }
         }
     
+    # Set the message for the Needs Revisions button modal popup
     def revision_description(self, artist):
         return {
             "type": "section",
@@ -91,6 +89,7 @@ class SlackBlocks():
             }
         }
     
+    # Set the message for the CBB button modal popup
     def cbb_description(self, artist):
         return {
             "type": "section",
@@ -100,6 +99,7 @@ class SlackBlocks():
             }
         }
 
+    # Set the text box for the modal popups
     def text_input(self):
         return {
             "type": "input",
@@ -114,6 +114,7 @@ class SlackBlocks():
             }
         }
 
+    # Set the approval buttons for the publishing block
     def approval_buttons(self):
         return {
             "type": "actions",
@@ -150,6 +151,7 @@ class SlackBlocks():
             ]
         }
 
+    # Set the divider for the publishing block and the approval buttons
     def divider(self):
         return {
             "type": "divider"

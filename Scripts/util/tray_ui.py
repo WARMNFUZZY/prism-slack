@@ -10,6 +10,7 @@ class TrayUI():
     def __init__(self, origin):
         pass
 
+    # Create the Tray UI for the Slack Server
     def createTraySlackUI(self, menu, server_status, server_machine):
         self.slackMenu = QMenu(f"Slack Server")
         

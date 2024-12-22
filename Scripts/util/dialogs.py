@@ -5,6 +5,7 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+# Create dialog used to input things like the Slack OAuth token or the App-Level Token
 class InputDialog(QDialog):
     def __init__(self, title):
         super(InputDialog, self).__init__()
@@ -35,7 +36,7 @@ class InputDialog(QDialog):
     def get_input(self):
         return self.input_field.text()
 
-
+# Create an "Uploading" dialog for the user to see while the file is being uploaded
 class UploadDialog(QDialog):
     def __init__(self):
         super(UploadDialog, self).__init__()
@@ -46,7 +47,7 @@ class UploadDialog(QDialog):
         self.label = QLabel('Uploading to Slack...')
         self.layout().addWidget(self.label)
 
-
+# Create Dialog for the user to input comments for the Slack Post
 class AdditionalInfoDialog(QDialog):
     def __init__(self):
         super(AdditionalInfoDialog, self).__init__()
@@ -98,13 +99,15 @@ class AdditionalInfoDialog(QDialog):
         self.button_ok.clicked.connect(self.accept)
         self.button_cancel.clicked.connect(self.reject)
 
+    # Get the comments from the text edit box
     def get_comments(self):
         return self.text_edit.toPlainText()
     
+    # Get the status from the radio buttons
     def get_status(self):
         return self.bg_status.checkedButton().text()
     
-
+# Create a dialog to warn the user that the user is not in the channel
 class WarningDialog(QDialog):
     def __init__(self, team_user=None):
         super(WarningDialog, self).__init__(team_user)
@@ -127,7 +130,7 @@ class WarningDialog(QDialog):
         self.button_yes.accepted.connect(self.accept)
         self.button_no.rejected.connect(self.reject)
 
-
+# Create a dialog to let the user know whether or not the upload was successful
 class SuccessfulPOST():
     def __init__(self, uploaded, method, upload_message):
         upload_message.close()
@@ -139,7 +142,7 @@ class SuccessfulPOST():
         else:
             None 
 
-
+# Create a dialog to make sure the user wants to start the server
 class ServerStartWarning(QDialog):
     def __init__(self):
         super(ServerStartWarning, self).__init__()
@@ -164,7 +167,7 @@ class ServerStartWarning(QDialog):
         self.button_yes.clicked.connect(self.accept)
         self.button_no.clicked.connect(self.reject) 
 
-
+# Create a dialog to make sure the user wants to stop the server
 class ServerStopWarning(QDialog):
     def __init__(self):
         super(ServerStopWarning, self).__init__()
@@ -189,7 +192,7 @@ class ServerStopWarning(QDialog):
         self.button_yes.clicked.connect(self.accept)
         self.button_no.clicked.connect(self.reject) 
 
-
+# Create a dialog to let the user know that the server is not running on their machine and it cannot be stopped from here
 class ServerNonWarning(QDialog):
     def __init__(self):
         super(ServerNonWarning, self).__init__()
@@ -212,7 +215,7 @@ class ServerNonWarning(QDialog):
 
         self.button_yes.clicked.connect(self.accept)
 
-
+# Create a dialog letting the user know that the Slack Studio Path was not found
 class SlackStudioPathNotFound(QDialog):
     def __init__(self):
         super(SlackStudioPathNotFound, self).__init__()

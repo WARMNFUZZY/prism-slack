@@ -5,10 +5,12 @@ import re
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
+# Convert an image sequence to a video
 class ConvertImageSequence():
     def __init__(self, core):
         self.core = core
 
+    # Convert an image sequence to a video
     @err_catcher(name=__name__)
     def convertImageSequence(self, sequence):
         # Define the "slack" output folder

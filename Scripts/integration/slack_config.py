@@ -28,6 +28,7 @@ class SlackConfig():
             
             return os.path.join(studio_path, "configs", "slack.json")
 
+    # Get the user configuration file
     @err_catcher(name=__name__)
     def getUserConfig(self):
         config = self.core.configs.getConfigPath("user")

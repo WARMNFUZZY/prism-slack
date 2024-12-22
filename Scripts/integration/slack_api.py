@@ -8,7 +8,7 @@ class UploadContent():
     def __init__(self, core):
         self.core = core
 
-
+    # Upload a file to a channel
     def uploadContent(self, access_token, channel, file):
         # Get the files size required for the upload
         file_stats = os.stat(file)
@@ -60,6 +60,7 @@ class PostMessage():
         self.core = core
         self.slack_blocks = SlackBlocks()
 
+    # Post a notification to a user
     def postProgressMessage(self, access_token, channel, sequence, shot, identifier, version, slack_user, user_avatar, comment, status):
         blocks = [
             self.slack_blocks.identifier_information(sequence, shot, identifier, version, slack_user, user_avatar, status),
@@ -86,6 +87,7 @@ class PostMessage():
 
         response = requests.post(url, headers=headers, json=payload)
 
+    # Post a message to a user on a channel
     def postChannelMessage(self, access_token, channel, message):
         url = "https://slack.com/api/chat.postMessage"
         headers = {
@@ -101,6 +103,7 @@ class PostMessage():
         except Exception as e:
             print(f"Error posting message: {e}")
 
+    # Post a direct message to a user
     def postDirectMessage(self, access_token, user_id, message):
         url = "https://slack.com/api/conversations.open"
         headers = {
@@ -125,6 +128,7 @@ class PostMessage():
         except Exception as e:
             print(f"Error sending direct message: {e}")
 
+    # Post an ephemeral message to a channel
     def postChannelEphemeralMessage(self, access_token, user_id, channel_id, message):
         url = "https://slack.com/api/chat.postEphemeral"
         headers = {
@@ -137,6 +141,7 @@ class PostMessage():
         }
         response = requests.post(url, headers=headers, json=payload)
 
+    # Post an ephemeral message to a user
     def postEphemeralDirectMessage(self, access_token, user_id, message):
         url = "https://slack.com/api/conversations.open"
         headers = {
@@ -163,11 +168,12 @@ class PostMessage():
         except Exception as e:
             print(f"Error sending direct ephemeral message: {e}")
 
-
+# Get user information
 class UserInfo():
     def __init__(self, core):
         self.core = core
 
+    # Get the users information
     def getUserInfo(self, access_token, user_id):
         url = "https://slack.com/api/users.info"
         headers = {
@@ -187,6 +193,7 @@ class UserInfo():
 
         return user_info
     
+    # Get the users avatar
     def getUserAvatar(self, access_token, user_id):
         user_info = self.getUserInfo(access_token, user_id)
         return user_info['profile']['image_72']

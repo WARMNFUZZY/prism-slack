@@ -7,6 +7,7 @@ class UserPools():
     def __init__(self, core):
         self.core = core
     
+    # Get the Users on a Slack Team Workspace, excluding bots
     @err_catcher(name=__name__)
     def getTeamUsers(self, access_token):
         url = "https://slack.com/api/users.list"
@@ -25,6 +26,7 @@ class UserPools():
         
         return team_users        
 
+    # Get the Users in a Slack Channel, saving only their display name and id
     @err_catcher(name=__name__)
     def getChannelUsers(self, access_token, conversation_id):
         url = "https://slack.com/api/conversations.members"
@@ -61,6 +63,7 @@ class UserPools():
         
         return channel_users
     
+    # Get the Users in the Studio Plugin of Prism
     @err_catcher(name=__name__)
     def getStudioUsers(self, state):
         studio= self.core.getPlugin("Studio")

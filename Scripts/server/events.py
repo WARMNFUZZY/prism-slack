@@ -1,7 +1,6 @@
 import requests
 import json
 
-from pprint import pprint 
 from server.blocks import SlackBlocks
 
 class SlackEvents:

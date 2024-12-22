@@ -10,7 +10,7 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
-from server.control import ServerControls
+from server.controls import ServerControls
 from integration.slack_config import SlackConfig
 from util.settings_ui import SettingsUI
 from util.tray_ui import TrayUI
