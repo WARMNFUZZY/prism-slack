@@ -61,6 +61,7 @@ class Prism_Slack_externalAccess_Functions(object):
         self.setStudioOptions(origin)
         self.connectEvents(origin)
 
+    # Load the UI for the Slack plugin in the user settings window
     @err_catcher(name=__name__)
     def userSettings_loadUI(self, origin):
         self.settings_ui.createUserSettingsUI(origin)
@@ -68,6 +69,7 @@ class Prism_Slack_externalAccess_Functions(object):
         self.checkUsername(origin)
         origin.b_userSave.clicked.connect(lambda: self.saveUsername(origin))
 
+    # Load the UI for the Slack plugin in the system tray context menu
     @err_catcher(name=__name__)
     def systemTrayContextMenuRequested(self, origin, menu):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
@@ -76,17 +78,22 @@ class Prism_Slack_externalAccess_Functions(object):
         print(f'Server Status: {server_status}')
         print(f'Server Machine: {server_machine}')
 
+        # Set the server status in the tray to "Not running" if it is empty
         if server_status == "":
             server_status = "Not running"
         
+        # Create the tray menu items
         self.tray_ui.createTraySlackUI(menu, server_status, server_machine)
         
+        # Get the tray menu items
         self.stop_action = self.tray_ui.stopServerAction
         self.start_action = self.tray_ui.startServerAction
 
+        # Connect the actions to the tray menu items
         self.stop_action.triggered.connect(lambda: self.slackTrayToggle(server_status, server_machine))
         self.start_action.triggered.connect(lambda: self.slackTrayToggle(server_status, server_machine))
 
+    # Toggle the Slack menu status and actions in the system tray 
     @err_catcher(name=__name__)
     def slackTrayToggle(self, server_status, server_machine):
 
@@ -115,6 +122,7 @@ class Prism_Slack_externalAccess_Functions(object):
             self.status_action.setText("Running")
             self.status_action.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "running.png")))
 
+    # Check the Slack display name in the user settings window and set it if it exists
     @err_catcher(name=__name__)
     def checkUsername(self, origin):
         le_user = origin.le_user
@@ -131,6 +139,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         self.slack_config.saveConfigSetting(user_data, "user")
 
+    # Save the Slack display name in the user config file
     @err_catcher(name=__name__)
     def saveUsername(self, origin):
         le_user = origin.le_user
@@ -139,6 +148,7 @@ class Prism_Slack_externalAccess_Functions(object):
         user_data["slack"]["username"] = le_user.text()
         self.slack_config.saveConfigSetting(user_data, "user")
 
+    # Set the Slack options in the studio/project settings window
     @err_catcher(name=__name__)
     def setStudioOptions(self, origin):
         try:
@@ -159,6 +169,7 @@ class Prism_Slack_externalAccess_Functions(object):
         except Exception as e:
             print(f"Error setting studio options: {e}")
 
+    # Connect the events in the studio/project settings window
     @err_catcher(name=__name__)
     def connectEvents(self, origin):
         origin.b_slack_token.clicked.connect(lambda: self.inputToken(origin))
@@ -168,7 +179,8 @@ class Prism_Slack_externalAccess_Functions(object):
         origin.b_app_token.clicked.connect(lambda: self.inputAppLevelToken(origin))
         origin.b_server.clicked.connect(lambda: self.toggleServer(origin))
         origin.b_reset_server.clicked.connect(lambda: self.resetServerStatus(origin))
-        
+    
+    # Add notification methods to the dropdown in the studio/project settings Slack window
     @err_catcher(name=__name__)
     def addNotifyMethods(self, origin):
         methods = ["Direct", "Channel", "Ephemeral Direct", "Ephemeral Channel"]
@@ -176,6 +188,7 @@ class Prism_Slack_externalAccess_Functions(object):
         cb_notify_method = origin.cb_notify_method
         cb_notify_method.addItems(methods)
     
+    # Change the notification method in the studio/project settings Slack window
     @err_catcher(name=__name__)
     def updateNotifyMethod(self, origin, index):
         notify_method = origin.cb_notify_method.currentText()
@@ -187,6 +200,7 @@ class Prism_Slack_externalAccess_Functions(object):
         
         self.slack_config.saveConfigSetting(pipeline_data, "studio")
 
+    # Check the notification method in the studio/project settings Slack window
     @err_catcher(name=__name__)
     def checkNotifyMethod(self, origin):
         pipeline_data = self.slack_config.loadConfig("studio")
@@ -198,18 +212,21 @@ class Prism_Slack_externalAccess_Functions(object):
         else:
             notify_method = None
 
+    # Add the user pools used for notifications to the dropdown in the studio/project settings Slack window
     @err_catcher(name=__name__)
     def addNotifyUserPools(self, origin):
         cb_notify_user_pool = origin.cb_notify_user_pool
         
         user_pool = []
-
+        
+        # Disabling the Studio user pool for now until I set a better method for acquiring all studio Display Names
         # if self.isStudioLoaded():
         #     user_pool.append("Studio")
         user_pool.append("Channel")
 
         cb_notify_user_pool.addItems(user_pool)
 
+    # Update the user pools used for notifications in the studio/project settings Slack window
     @err_catcher(name=__name__)
     def UpdateNotifyUserPool(self, origin, index):
         cb_notify_user_pool = origin.cb_notify_user_pool
@@ -267,6 +284,7 @@ class Prism_Slack_externalAccess_Functions(object):
         pipeline_data["slack"]["token"] = token
         self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
+    # Save the App-Level Token in the project/studio configuration file
     @err_catcher(name=__name__)
     def saveAppLevelToken(self, app_token):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
@@ -277,6 +295,7 @@ class Prism_Slack_externalAccess_Functions(object):
         
         self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
+    # Input the App-Level Token in the project/studio settings Window
     @err_catcher(name=__name__)
     def inputAppLevelToken(self, origin):
         input_dialog = InputDialog(title="Enter your Slack App-Level Token")
@@ -286,6 +305,7 @@ class Prism_Slack_externalAccess_Functions(object):
             origin.le_app_token.setText(app_token)
             self.saveAppLevelToken(app_token)
 
+    # Check the App-Level token in the project/studio config file
     @err_catcher(name=__name__)
     def checkAppLevelToken(self, origin):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
@@ -297,6 +317,7 @@ class Prism_Slack_externalAccess_Functions(object):
         app_token = pipeline_data["slack"]["server"].get("app_token", "")
         origin.le_app_token.setText(app_token)
 
+    # Toggle the Server controls in the studio/project settings window
     @err_catcher(name=__name__)
     def toggleServer(self, origin):
         self.config = self.slack_config.loadConfig(mode="studio")
