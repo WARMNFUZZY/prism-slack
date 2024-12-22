@@ -10,8 +10,10 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+from server.control import ServerControls
 from integration.slack_config import SlackConfig
 from util.settings_ui import SettingsUI
+from util.tray_ui import TrayUI
 from util.dialogs import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
@@ -22,6 +24,8 @@ class Prism_Slack_externalAccess_Functions(object):
         self.plugin = plugin
         self.slack_config = SlackConfig(self.core)
         self.settings_ui = SettingsUI(self.core)
+        self.tray_ui = TrayUI(self.core)
+        self.server_controls = ServerControls(self.core)
         
         if self.isStudioLoaded() is not None:
             self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
@@ -66,75 +70,50 @@ class Prism_Slack_externalAccess_Functions(object):
 
     @err_catcher(name=__name__)
     def systemTrayContextMenuRequested(self, origin, menu):
-        studio_path = self.core.getPlugin("Studio").getStudioConfigPath()
-        if studio_path is not None:
-
-            pipeline_data = self.slack_config.loadConfig(mode="studio")
-            server_status = pipeline_data["slack"]["server"].get("status")
-            server_machine = pipeline_data["slack"]["server"].get("machine")
-
-            if server_status == "":
-                server_status = "Not running"
-
-            self.slackMenu = QMenu(f"Slack Server")
-            
-            plugin_directory = Path(__file__).resolve().parents[1]
-            self.slack_icon = QIcon(os.path.join(plugin_directory, "Resources", "slack-icon.png"))
-            self.slackMenu.setIcon(self.slack_icon)
-            
-            self.statusServerAction = QAction(server_status)
-            
-            if server_status == "Running":
-                self.slack_server_running_icon = QIcon(os.path.join(plugin_directory, "Resources", "running.png"))
-                self.statusServerAction.setIcon(self.slack_server_running_icon)        
-            else:
-                self.slack_server_stopped_icon = QIcon(os.path.join(plugin_directory, "Resources", "stopped.png"))
-                self.statusServerAction.setIcon(self.slack_server_stopped_icon)
-            
-            self.stopServerAction = QAction("Stop Server")
-            self.startServerAction = QAction("Start Server")
-
-            self.stopServerAction.triggered.connect(self.slackTrayToggle)
-            self.startServerAction.triggered.connect(self.slackTrayToggle)
-
-            if server_status == "Running" and server_machine == socket.gethostname():
-                self.stopServerAction.setEnabled(True)
-                self.startServerAction.setEnabled(False)
-            else:
-                self.stopServerAction.setEnabled(False)
-                self.startServerAction.setEnabled(True)
-            
-            self.slackMenu.addAction(self.statusServerAction)
-            self.slackMenu.addAction(self.startServerAction)
-            self.slackMenu.addAction(self.stopServerAction)
-            
-            tray_actions = menu.actions()[0]
-            menu.insertMenu(tray_actions, self.slackMenu)
-
-    @err_catcher(name=__name__)
-    def slackTrayToggle(self):
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         server_status = pipeline_data["slack"]["server"].get("status")
         server_machine = pipeline_data["slack"]["server"].get("machine")
+        print(f'Server Status: {server_status}')
+        print(f'Server Machine: {server_machine}')
+
+        if server_status == "":
+            server_status = "Not running"
+        
+        self.tray_ui.createTraySlackUI(menu, server_status, server_machine)
+        
+        self.stop_action = self.tray_ui.stopServerAction
+        self.start_action = self.tray_ui.startServerAction
+
+        self.stop_action.triggered.connect(lambda: self.slackTrayToggle(server_status, server_machine))
+        self.start_action.triggered.connect(lambda: self.slackTrayToggle(server_status, server_machine))
+
+    @err_catcher(name=__name__)
+    def slackTrayToggle(self, server_status, server_machine):
 
         plugin_directory = Path(__file__).resolve().parents[1]
 
+        self.stop_action = self.tray_ui.stopServerAction
+        self.start_action = self.tray_ui.startServerAction
+        self.status_action = self.tray_ui.statusServerAction
+
         if server_status == "Running":
             if server_machine == socket.gethostname():
-                self.stopServer()
-                self.stopServerAction.setEnabled(False)
-                self.startServerAction.setEnabled(True)
-                self.statusServerAction.setText("Not running")
-                self.statusServerAction.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "stopped.png")))
+                print("Stopping the server")
+                self.server_controls.stopServer()
+                self.stop_action.setEnabled(False)
+                self.start_action.setEnabled(True)
+                self.status_action.setText("Not running")
+                self.status_action.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "stopped.png")))
             else:
                 self.dialogs = ServerNonWarning()
                 self.dialogs.exec_()
         else:
-            self.startServer()
-            self.stopServerAction.setEnabled(True)
-            self.startServerAction.setEnabled(False)
-            self.statusServerAction.setText("Running")
-            self.statusServerAction.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "running.png")))
+            print("Starting the server")
+            self.server_controls.startServer()
+            self.stop_action.setEnabled(True)
+            self.start_action.setEnabled(False)
+            self.status_action.setText("Running")
+            self.status_action.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "running.png")))
 
     @err_catcher(name=__name__)
     def checkUsername(self, origin):
@@ -176,7 +155,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
             # Check for the app-level token and assign it in the ui
             self.checkAppLevelToken(origin)
-            self.checkServerStatus(origin)
+            self.server_controls.checkServerStatus(origin)
         except Exception as e:
             print(f"Error setting studio options: {e}")
 
@@ -319,103 +298,6 @@ class Prism_Slack_externalAccess_Functions(object):
         origin.le_app_token.setText(app_token)
 
     @err_catcher(name=__name__)
-    def startServer(self):
-        scripts_path = Path(__file__).resolve().parents[0]
-        bolt_path = os.path.join(scripts_path, "server", "bolt.py")
-        self.config = self.slack_config.loadConfig(mode="studio")
-        token = self.config["slack"]["token"]
-        app_token = self.config["slack"]["server"]["app_token"]
-        executable = os.path.join(self.core.prismLibs, "Python311", "python.exe")
-
-        sub_env = os.environ.copy()
-        sub_env["BOLTPATH"] = f"{Path(__file__).resolve().parents[1]}\PythonLibs"
-        sub_env["SCRIPTSPATH"] = f"{Path(__file__).resolve().parents[0]}"
-        sub_env["PRISMPATH"] = f"{self.core.prismLibs}\PythonLibs\Python3"
-        sub_env["PRISM_CORE"] = f"{self.core.prismLibs}\Scripts"
-
-        self.server_status = self.config["slack"]["server"].get("status")
-        self.machine = self.config["slack"]["server"].get("machine")
-
-        win32api.SetConsoleCtrlHandler(lambda event: (self.resetServerStatus() if event == 2 else False), True)
-
-        try:
-            if self.server_status != "Running" and os.path.exists(bolt_path):
-                self.bolt = subprocess.Popen(
-                    [executable, bolt_path, token, app_token], 
-                    env=sub_env, 
-                    text=True
-                )
-
-                pipeline_data = self.slack_config.loadConfig(mode="studio")
-                pipeline_data["slack"]["server"]["status"] = "Running"
-                pipeline_data["slack"]["server"]["machine"] = socket.gethostname()
-                pipeline_data["slack"]["server"]["pid"] = self.bolt.pid
-                self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
-
-        except Exception as e:
-            self.core.popup(f"Error starting the Slack Bolt Server: {e}")
-            self.stopServer()
-
-    def resetServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(mode="studio")
-        pipeline_data["slack"]["server"]["status"] = ""
-        pipeline_data["slack"]["server"]["machine"] = ""
-        pipeline_data["slack"]["server"]["pid"] = ""
-        self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
-
-        self.checkServerStatus(origin)
-
-    @err_catcher(name=__name__)
-    def stopServer(self):
-        self.config = self.slack_config.loadConfig(mode="studio")
-        status = self.config["slack"]["server"].get("status")
-        pid = self.config["slack"]["server"].get("pid")
-
-        if status == "Running":
-            try:
-                self.resetServerStatus(origin=None)
-                os.kill(pid, 9)
-                print("Slack Bolt Server stopped")
-            except Exception as e:
-                self.core.popup(f"Error stopping the Slack Bolt Server: {e}")
-
-    @err_catcher(name=__name__)
-    def guiStartServer(self, origin):
-        start_check = ServerStartWarning()
-        if start_check.exec_() == QDialog.Accepted:
-            self.startServer()
-            origin.b_server.setText("Stop Server")
-            origin.b_reset_server.setEnabled(False)
-            self.checkServerStatus(origin)
-        else:
-            return
-    
-    @err_catcher(name=__name__)
-    def guiStopServer(self, origin):
-        stop_check = ServerStopWarning()
-        if stop_check.exec_() == QDialog.Accepted:
-            self.stopServer()
-            origin.b_server.setText("Start Server")
-            origin.b_reset_server.setEnabled(True)
-            self.checkServerStatus(origin)
-        else:
-            return
-
-    @err_catcher(name=__name__)
-    def checkServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(mode="studio")
-        self.slack_config.checkSlackOptions(pipeline_data)
-
-        status = pipeline_data["slack"]["server"].get("status", "Not running")
-        machine = pipeline_data["slack"]["server"].get("machine", "---------")
-
-        if origin is not None:
-            origin.l_server_status_value.setText(status)
-            origin.l_machine_value.setText(machine)
-
-        return pipeline_data["slack"]["server"].get("status")
-
-    @err_catcher(name=__name__)
     def toggleServer(self, origin):
         self.config = self.slack_config.loadConfig(mode="studio")
         b_server = origin.b_server
@@ -430,10 +312,10 @@ class Prism_Slack_externalAccess_Functions(object):
                 self.non_server_check.exec_()
                 return
             else:
-                self.guiStopServer(origin)
+                self.server_controls.guiStopServer(origin)
         else:
             b_reset_server.setEnabled(True)
-            self.guiStartServer(origin)
+            self.server_controls.guiStartServer(origin)
 
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)
