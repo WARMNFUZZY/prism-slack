@@ -3,6 +3,7 @@
 # Contact: john.d.kesig@gmail.com
 
 import os
+import sys
 import requests
 import subprocess
 import glob
@@ -23,14 +24,15 @@ from integration.slack_config import SlackConfig
 from integration.user_pools import UserPools
 from integration.slack_api import UploadContent, UserInfo, PostMessage
 
-from util.dialogs import (
+# Updated import to use relative path
+from Slack.Scripts.util.dialogs import (
     WarningDialog,
     AdditionalInfoDialog,
     SuccessfulPOST,
     UploadDialog,
 )
-from util.state_manager_ui import StateManagerUI
-from util.convert_image_sequence import ConvertImageSequence
+from Slack.Scripts.util.state_manager_ui import StateManagerUI
+from Slack.Scripts.util.convert_image_sequence import ConvertImageSequence
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 

@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from integration.slack_config import SlackConfig
-from ..util.dialogs import ServerStartWarning, ServerStopWarning
+from Slack.Scripts.util.dialogs import ServerStartWarning, ServerStopWarning
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
