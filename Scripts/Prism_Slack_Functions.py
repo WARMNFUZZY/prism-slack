@@ -154,7 +154,7 @@ class Prism_Slack_Functions(object):
                             outputList = [convert]
                             mode = "ConvertPB"
 
-                self.publishToSlack_fromSM(
+                self.publishToSlack(
                     outputList, seq, shot, identifier, version, mode="SM"
                 )
 
@@ -272,7 +272,7 @@ class Prism_Slack_Functions(object):
                                 outputList = [convert]
                                 mode = "ConvertIR"
 
-                self.publishToSlack_fromSM(
+                self.publishToSlack(
                     outputList, seq, shot, identifier, version, mode="SM"
                 )
         return
@@ -298,7 +298,7 @@ class Prism_Slack_Functions(object):
         icon = self.core.media.getColoredIcon(iconPath)
 
         action.triggered.connect(
-            lambda: self.publishToSlack_fromSM(
+            lambda: self.publishToSlack(
                 origin.seq,
                 self.sequence,
                 self.shot,
@@ -590,7 +590,7 @@ class Prism_Slack_Functions(object):
             SuccessfulPOST(uploaded, method, self.upload_message)
 
     @err_catcher(name=__name__)
-    def publishToSlack_fromSM(self, file, seq, shot, identifier, version, state):
+    def publishToSlack(self, file, seq, shot, identifier, version, state):
         current_project = self.core.getConfig(
             "globals", "project_name", configPath=self.core.prismIni
         ).lower()
