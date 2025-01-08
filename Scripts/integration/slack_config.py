@@ -3,7 +3,8 @@ import json
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
-class SlackConfig():
+
+class SlackConfig:
     def __init__(self, core):
         self.core = core
 
@@ -14,24 +15,24 @@ class SlackConfig():
         studio_path = os.getenv("PRISM_STUDIO_PATH")
         if studio_path:
             return os.path.join(studio_path, "configs", "slack.json")
-        
+
         # If the Studio plugin is not available, check the project configuration file
         elif self.core.getPlugin("Studio") is None:
             prjConfig_path = os.path.dirname(self.core.prismIni)
-            
+
             return os.path.join(prjConfig_path, "pipeline.json")
-        
+
         # Get the config from the studio path
-        else: 
+        else:
             studio_plugin = self.core.getPlugin("Studio")
             studio_path = studio_plugin.getStudioPath()
-            
+
             return os.path.join(studio_path, "configs", "slack.json")
 
     @err_catcher(name=__name__)
     def getUserConfig(self):
         config = self.core.configs.getConfigPath("user")
-        
+
         return config
 
     # Load the slack configuration file
@@ -39,15 +40,15 @@ class SlackConfig():
     def loadConfig(self, mode):
         if mode == "user":
             user_file = self.getUserConfig()
-            
+
             with open(user_file, "r") as f:
                 return json.load(f)
-        
-        elif mode == "studio":  
+
+        elif mode == "studio":
             pipeline_file = self.getSlackConfig()
 
         else:
-            self.core.popup('Cannot retrieve configuration file')
+            self.core.popup("Cannot retrieve configuration file")
             return
         try:
             # If the pipeline file doesn't exist, create it and initialize the slack token field
@@ -61,16 +62,16 @@ class SlackConfig():
                 return json.load(f)
         except:
             return
-        
+
     # Save the settings to the slack configuration file
     @err_catcher(__name__)
     def saveConfigSetting(self, setting, mode):
         if mode == "user":
             config = self.getUserConfig()
-        elif mode == "studio": 
+        elif mode == "studio":
             config = self.getSlackConfig()
         else:
-            self.core.popup('Cannot retrieve configuration file')
+            self.core.popup("Cannot retrieve configuration file")
             return
 
         with open(config, "w") as f:
@@ -81,7 +82,7 @@ class SlackConfig():
     def checkSlackOptions(self, pipeline_data):
         if "slack" not in pipeline_data:
             pipeline_data["slack"] = {}
-        
+
         if "token" not in pipeline_data["slack"]:
             pipeline_data["slack"]["token"] = ""
 

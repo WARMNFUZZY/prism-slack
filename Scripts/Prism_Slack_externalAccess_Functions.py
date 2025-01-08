@@ -16,34 +16,53 @@ from util.dialogs import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
+
 class Prism_Slack_externalAccess_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
         self.slack_config = SlackConfig(self.core)
         self.settings_ui = SettingsUI(self.core)
-        
-        if self.isStudioLoaded() is not None:
-            self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
-        else:
-            self.core.registerCallback("onPluginsLoaded", self.onPluginsLoaded, plugin=self)
 
-        self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
-        self.core.registerCallback("trayContextMenuRequested", self.systemTrayContextMenuRequested, plugin=self)
+        if self.isStudioLoaded() is not None:
+            self.core.registerCallback(
+                "studioSettings_loadSettings",
+                self.studioSettings_loadSettings,
+                plugin=self,
+            )
+        else:
+            self.core.registerCallback(
+                "onPluginsLoaded", self.onPluginsLoaded, plugin=self
+            )
+
+        self.core.registerCallback(
+            "userSettings_loadUI", self.userSettings_loadUI, plugin=self
+        )
+        self.core.registerCallback(
+            "trayContextMenuRequested", self.systemTrayContextMenuRequested, plugin=self
+        )
 
     @err_catcher(name=__name__)
     def onPluginsLoaded(self):
         if self.isStudioLoaded() is not None:
-            self.core.registerCallback("studioSettings_loadSettings", self.studioSettings_loadSettings, plugin=self)
+            self.core.registerCallback(
+                "studioSettings_loadSettings",
+                self.studioSettings_loadSettings,
+                plugin=self,
+            )
         else:
-            self.core.registerCallback("projectSettings_loadUI", self.projectSettings_loadUI, plugin=self)
-            
-        self.core.registerCallback("userSettings_loadUI", self.userSettings_loadUI, plugin=self)
+            self.core.registerCallback(
+                "projectSettings_loadUI", self.projectSettings_loadUI, plugin=self
+            )
+
+        self.core.registerCallback(
+            "userSettings_loadUI", self.userSettings_loadUI, plugin=self
+        )
 
     # Load the UI for the Slack plugin in the studio settings window
     @err_catcher(name=__name__)
     def studioSettings_loadSettings(self, origin, settings):
-        if self.core.getPlugin('Studio').getStudioConfigPath() is None:
+        if self.core.getPlugin("Studio").getStudioConfigPath() is None:
             SlackStudioPathNotFound().exec_()
             return
         self.settings_ui.createSlackStudioSettingsUI(origin, settings)
@@ -68,7 +87,6 @@ class Prism_Slack_externalAccess_Functions(object):
     def systemTrayContextMenuRequested(self, origin, menu):
         studio_path = self.core.getPlugin("Studio").getStudioConfigPath()
         if studio_path is not None:
-
             pipeline_data = self.slack_config.loadConfig(mode="studio")
             server_status = pipeline_data["slack"]["server"].get("status")
             server_machine = pipeline_data["slack"]["server"].get("machine")
@@ -77,20 +95,26 @@ class Prism_Slack_externalAccess_Functions(object):
                 server_status = "Not running"
 
             self.slackMenu = QMenu(f"Slack Server")
-            
+
             plugin_directory = Path(__file__).resolve().parents[1]
-            self.slack_icon = QIcon(os.path.join(plugin_directory, "Resources", "slack-icon.png"))
+            self.slack_icon = QIcon(
+                os.path.join(plugin_directory, "Resources", "slack-icon.png")
+            )
             self.slackMenu.setIcon(self.slack_icon)
-            
+
             self.statusServerAction = QAction(server_status)
-            
+
             if server_status == "Running":
-                self.slack_server_running_icon = QIcon(os.path.join(plugin_directory, "Resources", "running.png"))
-                self.statusServerAction.setIcon(self.slack_server_running_icon)        
+                self.slack_server_running_icon = QIcon(
+                    os.path.join(plugin_directory, "Resources", "running.png")
+                )
+                self.statusServerAction.setIcon(self.slack_server_running_icon)
             else:
-                self.slack_server_stopped_icon = QIcon(os.path.join(plugin_directory, "Resources", "stopped.png"))
+                self.slack_server_stopped_icon = QIcon(
+                    os.path.join(plugin_directory, "Resources", "stopped.png")
+                )
                 self.statusServerAction.setIcon(self.slack_server_stopped_icon)
-            
+
             self.stopServerAction = QAction("Stop Server")
             self.startServerAction = QAction("Start Server")
 
@@ -103,11 +127,11 @@ class Prism_Slack_externalAccess_Functions(object):
             else:
                 self.stopServerAction.setEnabled(False)
                 self.startServerAction.setEnabled(True)
-            
+
             self.slackMenu.addAction(self.statusServerAction)
             self.slackMenu.addAction(self.startServerAction)
             self.slackMenu.addAction(self.stopServerAction)
-            
+
             tray_actions = menu.actions()[0]
             menu.insertMenu(tray_actions, self.slackMenu)
 
@@ -125,7 +149,9 @@ class Prism_Slack_externalAccess_Functions(object):
                 self.stopServerAction.setEnabled(False)
                 self.startServerAction.setEnabled(True)
                 self.statusServerAction.setText("Not running")
-                self.statusServerAction.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "stopped.png")))
+                self.statusServerAction.setIcon(
+                    QIcon(os.path.join(plugin_directory, "Resources", "stopped.png"))
+                )
             else:
                 self.dialogs = ServerNonWarning()
                 self.dialogs.exec_()
@@ -134,17 +160,19 @@ class Prism_Slack_externalAccess_Functions(object):
             self.stopServerAction.setEnabled(True)
             self.startServerAction.setEnabled(False)
             self.statusServerAction.setText("Running")
-            self.statusServerAction.setIcon(QIcon(os.path.join(plugin_directory, "Resources", "running.png")))
+            self.statusServerAction.setIcon(
+                QIcon(os.path.join(plugin_directory, "Resources", "running.png"))
+            )
 
     @err_catcher(name=__name__)
     def checkUsername(self, origin):
         le_user = origin.le_user
-        user_data = self.slack_config.loadConfig('user')
+        user_data = self.slack_config.loadConfig("user")
 
         if "slack" not in user_data:
             user_data["slack"] = {}
             user_data["slack"]["username"] = ""
-        
+
         if "username" in user_data["slack"]:
             le_user.setText(user_data["slack"].get("username"))
         else:
@@ -155,7 +183,7 @@ class Prism_Slack_externalAccess_Functions(object):
     @err_catcher(name=__name__)
     def saveUsername(self, origin):
         le_user = origin.le_user
-        user_data = self.slack_config.loadConfig('user')
+        user_data = self.slack_config.loadConfig("user")
 
         user_data["slack"]["username"] = le_user.text()
         self.slack_config.saveConfigSetting(user_data, "user")
@@ -183,20 +211,24 @@ class Prism_Slack_externalAccess_Functions(object):
     @err_catcher(name=__name__)
     def connectEvents(self, origin):
         origin.b_slack_token.clicked.connect(lambda: self.inputToken(origin))
-        origin.cb_notify_user_pool.currentIndexChanged.connect(lambda index: self.UpdateNotifyUserPool(origin, index))
-        origin.cb_notify_method.currentIndexChanged.connect(lambda index: self.updateNotifyMethod(origin, index))
-        
+        origin.cb_notify_user_pool.currentIndexChanged.connect(
+            lambda index: self.UpdateNotifyUserPool(origin, index)
+        )
+        origin.cb_notify_method.currentIndexChanged.connect(
+            lambda index: self.updateNotifyMethod(origin, index)
+        )
+
         origin.b_app_token.clicked.connect(lambda: self.inputAppLevelToken(origin))
         origin.b_server.clicked.connect(lambda: self.toggleServer(origin))
         origin.b_reset_server.clicked.connect(lambda: self.resetServerStatus(origin))
-        
+
     @err_catcher(name=__name__)
     def addNotifyMethods(self, origin):
         methods = ["Direct", "Channel", "Ephemeral Direct", "Ephemeral Channel"]
-        
+
         cb_notify_method = origin.cb_notify_method
         cb_notify_method.addItems(methods)
-    
+
     @err_catcher(name=__name__)
     def updateNotifyMethod(self, origin, index):
         notify_method = origin.cb_notify_method.currentText()
@@ -205,7 +237,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         if "method" in pipeline_data["slack"]["notifications"]:
             pipeline_data["slack"]["notifications"]["method"] = notify_method
-        
+
         self.slack_config.saveConfigSetting(pipeline_data, "studio")
 
     @err_catcher(name=__name__)
@@ -222,7 +254,7 @@ class Prism_Slack_externalAccess_Functions(object):
     @err_catcher(name=__name__)
     def addNotifyUserPools(self, origin):
         cb_notify_user_pool = origin.cb_notify_user_pool
-        
+
         user_pool = []
 
         # if self.isStudioLoaded():
@@ -242,7 +274,7 @@ class Prism_Slack_externalAccess_Functions(object):
             pipeline_data["slack"]["notifications"]["user_pool"] = notify_user_pool
 
         self.slack_config.saveConfigSetting(pipeline_data, "studio")
-    
+
     # Check the method of notification to Slack users
     @err_catcher(name=__name__)
     def checkNotifyUserPool(self, origin):
@@ -266,14 +298,14 @@ class Prism_Slack_externalAccess_Functions(object):
             slack_token = text
             le_slack_token.setText(slack_token)
             self.saveToken(slack_token)
-    
+
     # Check if the Slack API token is present in the pipeline configuration file
     @err_catcher(name=__name__)
     def checkToken(self, origin):
         le_slack_token = origin.le_slack_token
         pipeline_data = self.slack_config.loadConfig(mode="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
-        
+
         if "token" not in pipeline_data["slack"]:
             le_slack_token.setPlaceholderText("Enter your Slack API Token")
 
@@ -295,7 +327,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         if "app_token" in pipeline_data["slack"]["server"]:
             pipeline_data["slack"]["server"]["app_token"] = app_token
-        
+
         self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
 
     @err_catcher(name=__name__)
@@ -336,14 +368,14 @@ class Prism_Slack_externalAccess_Functions(object):
         self.server_status = self.config["slack"]["server"].get("status")
         self.machine = self.config["slack"]["server"].get("machine")
 
-        win32api.SetConsoleCtrlHandler(lambda event: (self.resetServerStatus() if event == 2 else False), True)
+        win32api.SetConsoleCtrlHandler(
+            lambda event: (self.resetServerStatus() if event == 2 else False), True
+        )
 
         try:
             if self.server_status != "Running" and os.path.exists(bolt_path):
                 self.bolt = subprocess.Popen(
-                    [executable, bolt_path, token, app_token], 
-                    env=sub_env, 
-                    text=True
+                    [executable, bolt_path, token, app_token], env=sub_env, text=True
                 )
 
                 pipeline_data = self.slack_config.loadConfig(mode="studio")
@@ -389,7 +421,7 @@ class Prism_Slack_externalAccess_Functions(object):
             self.checkServerStatus(origin)
         else:
             return
-    
+
     @err_catcher(name=__name__)
     def guiStopServer(self, origin):
         stop_check = ServerStopWarning()
@@ -423,7 +455,7 @@ class Prism_Slack_externalAccess_Functions(object):
 
         self.server_machine = self.config["slack"]["server"].get("machine")
         self.server_status = self.config["slack"]["server"].get("status")
-        
+
         if self.server_status == "Running":
             if socket.gethostname() != self.server_machine:
                 self.non_server_check = ServerNonWarning()
@@ -438,4 +470,4 @@ class Prism_Slack_externalAccess_Functions(object):
     # Check if the studio plugin is loaded
     @err_catcher(name=__name__)
     def isStudioLoaded(self):
-        return self.core.getPlugin("Studio") 
+        return self.core.getPlugin("Studio")

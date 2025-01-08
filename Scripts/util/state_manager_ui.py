@@ -7,7 +7,8 @@ from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
-class StateManagerUI():
+
+class StateManagerUI:
     def __init__(self, core):
         self.core = core
 
@@ -48,7 +49,7 @@ class StateManagerUI():
             if sub_layout:
                 for i in reversed(range(sub_layout.count())):
                     item = sub_layout.itemAt(i)
-                    if item.widget(): 
+                    if item.widget():
                         widget = item.widget()
                         sub_layout.removeWidget(widget)
                         widget.deleteLater()
@@ -59,11 +60,11 @@ class StateManagerUI():
                 delattr(state, attribute_name)
 
             for attr in [
-                'chb_slackPublish', 
-                'l_slackPublish', 
-                'cb_userPool', 
-                'l_slackNotify', 
-                'chb_slackNotify'
-                ]:
+                "chb_slackPublish",
+                "l_slackPublish",
+                "cb_userPool",
+                "l_slackNotify",
+                "chb_slackNotify",
+            ]:
                 if hasattr(state, attr):
                     delattr(state, attr)

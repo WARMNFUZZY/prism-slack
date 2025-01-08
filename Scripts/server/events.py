@@ -1,8 +1,9 @@
 import requests
 import json
 
-from pprint import pprint 
+from pprint import pprint
 from server.blocks import SlackBlocks
+
 
 class SlackEvents:
     def __init__(self, app, token, core):
@@ -12,45 +13,43 @@ class SlackEvents:
         self.metadata = {}
         self.blocks = SlackBlocks()
 
-        #------------------------------
+        # ------------------------------
         # REMEMBER, YOU CAN USE PCORE IN HERE TO ACCESS THE CORE FUNCTIONALITY TO FURTHER ENHANCE YOUR SLACK APP
-        #------------------------------
-        
+        # ------------------------------
+
         # Register actions
         self.register_actions()
 
     def register_actions(self):
-
         @self.app.event("channel_created")
         def event_channel_created(ack, event, say):
             ack()
-            
+
             channel_id = event["channel"]["id"]
             url = "https://slack.com/api/conversations.join"
             headers = {
                 "Authorization": f"Bearer {self.token}",
                 "Content-Type": "application/json",
             }
-            payload = {
-                'channel': channel_id
-            }
-            
+            payload = {"channel": channel_id}
+
             response = requests.post(url, headers=headers, json=payload)
             if response.status_code == 200:
                 if response.json().get("ok"):
                     print(f"Joined channel: {channel_id}")
                 else:
-                    print(f"Failed to join channel: {channel_id}\n\n {response.json().get('error')}")
+                    print(
+                        f"Failed to join channel: {channel_id}\n\n {response.json().get('error')}"
+                    )
             else:
                 print(f"Failed to join channel: {channel_id}\n\n {response.text}")
-                
 
         @self.app.action("button_approved")
         def action_button_approved(body, ack, say):
             ack()
-            
-            thread_ts = body['message'].get('ts')
-            
+
+            thread_ts = body["message"].get("ts")
+
             url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {self.token}",
@@ -58,7 +57,7 @@ class SlackEvents:
             payload = {
                 "channel": body["channel"]["id"],
                 "text": "Marked as: Approved by " f"<@{body['user']['id']}>",
-                "thread_ts": thread_ts
+                "thread_ts": thread_ts,
             }
             response = requests.post(url, headers=headers, json=payload)
 
@@ -67,33 +66,34 @@ class SlackEvents:
         def action_button_needs_revised(body, ack, client):
             ack()
 
-            metadata = json.dumps({
-                "timestamp": body["message"]["ts"],
-                "channel": body["channel"]["id"],
-                "reviewer": body["user"]["id"]
-            })
+            metadata = json.dumps(
+                {
+                    "timestamp": body["message"]["ts"],
+                    "channel": body["channel"]["id"],
+                    "reviewer": body["user"]["id"],
+                }
+            )
 
-            blocks = body['message'].get('blocks', [])
+            blocks = body["message"].get("blocks", [])
             for block in blocks:
-                for field in block.get('fields', []):
-                    if field.get('text', '').startswith('*Artist:*'):
-                        artist = field['text'].strip().split(" ")[-1].strip("_<@>")
-                        break 
+                for field in block.get("fields", []):
+                    if field.get("text", "").startswith("*Artist:*"):
+                        artist = field["text"].strip().split(" ")[-1].strip("_<@>")
+                        break
 
             client.views_open(
                 trigger_id=body["trigger_id"],
-                view= {
+                view={
                     "type": "modal",
                     "callback_id": "modal-needs-revised",
-                    "title": {"type": "plain_text", "text": "Needs Revised"}, 
+                    "title": {"type": "plain_text", "text": "Needs Revised"},
                     "blocks": [
                         self.blocks.revision_description(artist),
                         self.blocks.text_input(),
-
                     ],
                     "close": {"type": "plain_text", "text": "Cancel"},
                     "submit": {"type": "plain_text", "text": "Submit"},
-                    "private_metadata": metadata
+                    "private_metadata": metadata,
                 },
             )
 
@@ -104,20 +104,22 @@ class SlackEvents:
 
             metadata = json.loads(body["view"]["private_metadata"])
             reviewer = body["user"]["id"]
-            for block in body['view']['blocks']:
-                if 'element' in block and 'action_id' in block['element']:
-                    element_id = block['element']['action_id']
+            for block in body["view"]["blocks"]:
+                if "element" in block and "action_id" in block["element"]:
+                    element_id = block["element"]["action_id"]
                     break
-            comments = body["view"]["state"]["values"]["input_comments"][element_id]["value"]
+            comments = body["view"]["state"]["values"]["input_comments"][element_id][
+                "value"
+            ]
 
             url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {self.token}",
             }
             payload = {
-                "channel": metadata['channel'],
+                "channel": metadata["channel"],
                 "text": f"Marked as: *Needs revised* by <@{reviewer}>\n\n{comments}",
-                "thread_ts": metadata["timestamp"]
+                "thread_ts": metadata["timestamp"],
             }
             response = requests.post(url, headers=headers, json=payload)
 
@@ -126,33 +128,34 @@ class SlackEvents:
         def action_button_cbb(body, ack, client):
             ack()
 
-            metadata = json.dumps({
-                "timestamp": body["message"]["ts"],
-                "channel": body["channel"]["id"],
-                "reviewer": body["user"]["id"]
-            })
+            metadata = json.dumps(
+                {
+                    "timestamp": body["message"]["ts"],
+                    "channel": body["channel"]["id"],
+                    "reviewer": body["user"]["id"],
+                }
+            )
 
-            blocks = body['message'].get('blocks', [])
+            blocks = body["message"].get("blocks", [])
             for block in blocks:
-                for field in block.get('fields', []):
-                    if field.get('text', '').startswith('*Artist:*'):
-                        artist = field['text'].strip().split(" ")[-1].strip("_<@>")
-                        break 
+                for field in block.get("fields", []):
+                    if field.get("text", "").startswith("*Artist:*"):
+                        artist = field["text"].strip().split(" ")[-1].strip("_<@>")
+                        break
 
             client.views_open(
                 trigger_id=body["trigger_id"],
-                view= {
+                view={
                     "type": "modal",
                     "callback_id": "modal-cbb",
-                    "title": {"type": "plain_text", "text": "Could Be Better"}, 
+                    "title": {"type": "plain_text", "text": "Could Be Better"},
                     "blocks": [
                         self.blocks.cbb_description(artist),
                         self.blocks.text_input(),
-
                     ],
                     "close": {"type": "plain_text", "text": "Cancel"},
                     "submit": {"type": "plain_text", "text": "Submit"},
-                    "private_metadata": metadata
+                    "private_metadata": metadata,
                 },
             )
 
@@ -163,20 +166,22 @@ class SlackEvents:
 
             metadata = json.loads(body["view"]["private_metadata"])
             reviewer = body["user"]["id"]
-            
-            for block in body['view']['blocks']:
-                if 'element' in block and 'action_id' in block['element']:
-                    element_id = block['element']['action_id']
+
+            for block in body["view"]["blocks"]:
+                if "element" in block and "action_id" in block["element"]:
+                    element_id = block["element"]["action_id"]
                     break
-            comments = body["view"]["state"]["values"]["input_comments"][element_id]["value"]
+            comments = body["view"]["state"]["values"]["input_comments"][element_id][
+                "value"
+            ]
 
             url = "https://slack.com/api/chat.postMessage"
             headers = {
                 "Authorization": f"Bearer {self.token}",
             }
             payload = {
-                "channel": metadata['channel'],
+                "channel": metadata["channel"],
                 "text": f"Marked as: *CBB* by <@{reviewer}>\n\n{comments}",
-                "thread_ts": metadata["timestamp"]
+                "thread_ts": metadata["timestamp"],
             }
             response = requests.post(url, headers=headers, json=payload)
