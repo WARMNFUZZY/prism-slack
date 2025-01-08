@@ -2,13 +2,6 @@ class SlackBlocks:
     def __init__(self):
         pass
 
-    # def profile_accessory(self, user_avatar):
-    #     return {
-    #         "type": "image",
-    #         "image_url": user_avatar,
-    #         "alt_text": "User profile picture"
-    #     }
-
     def identifier_information(
         self, sequence, shot, identifier, version, artist, user_avatar, status
     ):
