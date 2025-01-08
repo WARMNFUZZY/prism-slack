@@ -5,20 +5,23 @@ import subprocess
 from pathlib import Path
 
 from integration.slack_config import SlackConfig
-from util.dialogs import *
+from ..util.dialogs import ServerStartWarning, ServerStopWarning
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
+
 
 class ServerControls:
     def __init__(self, core):
         self.core = core
         self.slack_config = SlackConfig(self.core)
-    
+
     # Start the Slack Bolt Server
     @err_catcher(name=__name__)
     def startServer(self):
-        #Create paths for the environment variables to be used in the Slack Bolt Server
-        scripts_path = os.path.join(self.core.getPlugin("Slack").pluginDirectory, "Scripts")
+        # Create paths for the environment variables to be used in the Slack Bolt Server
+        scripts_path = os.path.join(
+            self.core.getPlugin("Slack").pluginDirectory, "Scripts"
+        )
         bolt_path = os.path.join(scripts_path, "server", "bolt.py")
         self.config = self.slack_config.loadConfig(mode="studio")
         token = self.config["slack"]["token"]
@@ -36,15 +39,15 @@ class ServerControls:
         self.machine = self.config["slack"]["server"].get("machine")
 
         # Set handler for console events to reset the server status if the server is stopped
-        win32api.SetConsoleCtrlHandler(lambda event: (self.resetServerStatus() if event == 2 else False), True)
+        win32api.SetConsoleCtrlHandler(
+            lambda event: (self.resetServerStatus() if event == 2 else False), True
+        )
 
         # Attempt to start the Slack Bolt Server
         try:
             if self.server_status != "Running" and os.path.exists(bolt_path):
                 self.bolt = subprocess.Popen(
-                    [executable, bolt_path, token, app_token], 
-                    env=sub_env, 
-                    text=True
+                    [executable, bolt_path, token, app_token], env=sub_env, text=True
                 )
 
                 # Update the server status/machine/pid in the config file
@@ -95,7 +98,7 @@ class ServerControls:
             self.checkServerStatus(origin)
         else:
             return
-    
+
     # Stop the Slack Bolt Server from the GUI
     @err_catcher(name=__name__)
     def guiStopServer(self, origin):

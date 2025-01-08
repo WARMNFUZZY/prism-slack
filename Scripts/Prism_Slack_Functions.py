@@ -21,9 +21,14 @@ from server.blocks import SlackBlocks
 
 from integration.slack_config import SlackConfig
 from integration.user_pools import UserPools
-from integration.slack_api import *
+from integration.slack_api import UploadContent, UserInfo, PostMessage
 
-from util.dialogs import *
+from util.dialogs import (
+    WarningDialog,
+    AdditionalInfoDialog,
+    SuccessfulPOST,
+    UploadDialog,
+)
 from util.state_manager_ui import StateManagerUI
 from util.convert_image_sequence import ConvertImageSequence
 
@@ -115,14 +120,12 @@ class Prism_Slack_Functions(object):
                 if ext in [".png", ".jpg"]:
                     if rangeType == "Single Frame":
                         outputList = [outputPath]
-                        mode = "Playblast"
 
                     if rangeType != "Single Frame" and startFrame == endFrame:
                         file = outputPath.replace(
                             "#" * self.core.framePadding, str(startFrame)
                         )
                         outputList = [file]
-                        mode = "Playblast"
 
                     if rangeType != "Single Frame" and startFrame < endFrame:
                         if state.chb_mediaConversion.isChecked() is False:
@@ -130,7 +133,6 @@ class Prism_Slack_Functions(object):
                                 outputPath
                             )
                             outputList = [convert]
-                            mode = "ConvertPB"
 
                     if state.chb_mediaConversion.isChecked() is True:
                         option = state.cb_mediaConversion.currentText().lower()
@@ -141,7 +143,6 @@ class Prism_Slack_Functions(object):
                         converted_directory = f"{top_directory} ({ext})"
                         converted_file = f"{converted_directory}/{base} ({ext}).{ext}"
                         outputList = [converted_file]
-                        mode = "Playblast"
 
                         if option in ["png", "jpg"]:
                             framePad = "#" * self.core.framePadding
@@ -152,7 +153,6 @@ class Prism_Slack_Functions(object):
                                 sequence
                             )
                             outputList = [convert]
-                            mode = "ConvertPB"
 
                 self.publishToSlack(
                     outputList, seq, shot, identifier, version, mode="SM"
