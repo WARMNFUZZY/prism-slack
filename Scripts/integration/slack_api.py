@@ -46,6 +46,9 @@ class UploadContent:
             post_payload = {"files": [{"id": id, "title": file}], "channel_id": channel}
 
             response = requests.post(post_url, headers=headers, json=post_payload)
+            data = response.json()
+
+            return data
 
 
 class PostMessage:
