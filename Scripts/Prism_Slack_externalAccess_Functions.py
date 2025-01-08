@@ -1,3 +1,7 @@
+# -----------
+# Created by John Kesig while at Warm'n Fuzzy
+# Contact: john.d.kesig@gmail.com
+
 import os
 import subprocess
 import socket
