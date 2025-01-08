@@ -65,6 +65,7 @@ class SlackBlocks:
             },
         }
 
+    # Set the text box for the modal popups
     def text_input(self):
         return {
             "type": "input",
@@ -73,6 +74,7 @@ class SlackBlocks:
             "element": {"type": "plain_text_input", "multiline": True},
         }
 
+    # Set the approval buttons for the publishing block
     def approval_buttons(self):
         return {
             "type": "actions",
@@ -101,5 +103,6 @@ class SlackBlocks:
             ],
         }
 
+    # Set the divider for the publishing block and the approval buttons
     def divider(self):
         return {"type": "divider"}

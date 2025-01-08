@@ -9,6 +9,7 @@ class UploadContent:
     def __init__(self, core):
         self.core = core
 
+    # Upload a file to a channel
     def uploadContent(self, access_token, channel, file):
         # Get the files size required for the upload
         file_stats = os.stat(file)
@@ -90,6 +91,7 @@ class PostMessage:
 
         response = requests.post(url, headers=headers, json=payload)
 
+    # Post a message to a user on a channel
     def postChannelMessage(self, access_token, channel, message):
         url = "https://slack.com/api/chat.postMessage"
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -100,6 +102,7 @@ class PostMessage:
         except Exception as e:
             print(f"Error posting message: {e}")
 
+    # Post a direct message to a user
     def postDirectMessage(self, access_token, user_id, message):
         url = "https://slack.com/api/conversations.open"
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -117,12 +120,14 @@ class PostMessage:
         except Exception as e:
             print(f"Error sending direct message: {e}")
 
+    # Post an ephemeral message to a channel
     def postChannelEphemeralMessage(self, access_token, user_id, channel_id, message):
         url = "https://slack.com/api/chat.postEphemeral"
         headers = {"Authorization": f"Bearer {access_token}"}
         payload = {"channel": channel_id, "user": user_id, "text": message}
         response = requests.post(url, headers=headers, json=payload)
 
+    # Post an ephemeral message to a user
     def postEphemeralDirectMessage(self, access_token, user_id, message):
         url = "https://slack.com/api/conversations.open"
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -147,6 +152,7 @@ class UserInfo:
     def __init__(self, core):
         self.core = core
 
+    # Get the users information
     def getUserInfo(self, access_token, user_id):
         url = "https://slack.com/api/users.info"
         headers = {"Authorization": f"Bearer {access_token}"}

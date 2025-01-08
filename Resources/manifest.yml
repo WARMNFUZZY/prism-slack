@@ -23,6 +23,7 @@ oauth_config:
       - groups:history
       - im:write
       - channels:join
+      - users:read
 settings:
   event_subscriptions:
     bot_events:

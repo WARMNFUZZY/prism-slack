@@ -26,13 +26,16 @@ class SlackBoltServer:
         self.app_token = app_token
         self.app = App(token=self.token)
 
+        # Initialize the Slack Blocks to be used in the Slack Bolt Server
         self.blocks = SlackBlocks()
 
+        # Initialize the Slack Events to be used in the Slack Bolt Server
         self.events = SlackEvents(self.app, token, core=core)
 
 
 if __name__ == "__main__":
     from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+    # Start the Slack Bolt Server
     bolt = SlackBoltServer(sys.argv[1], sys.argv[2])
     SocketModeHandler(bolt.app, bolt.app_token).start()

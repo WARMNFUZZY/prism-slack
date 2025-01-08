@@ -26,6 +26,7 @@ class UserPools:
 
         return team_users
 
+    # Get the Users in a Slack Channel, saving only their display name and id
     @err_catcher(name=__name__)
     def getChannelUsers(self, access_token, conversation_id):
         url = "https://slack.com/api/conversations.members"

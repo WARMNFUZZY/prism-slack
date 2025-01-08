@@ -26,6 +26,7 @@ class SettingsUI:
 
             origin.addTab(origin.w_slackStudioTab, "Slack")
 
+    # Create the Slack UI for the Project Settings
     @err_catcher(__name__)
     def createSlackProjectSettingsUI(self, origin, settings):
         if not hasattr(origin, "w_slackProjectTab"):
@@ -39,6 +40,7 @@ class SettingsUI:
 
             origin.addTab(origin.w_slackProjectTab, "Slack")
 
+    # Create the Custom Channel UI
     @err_catcher(__name__)
     def createCustomChannelUI(self, lo_slack, origin, settings):
         gb_custom_channel = QGroupBox()
@@ -53,6 +55,7 @@ class SettingsUI:
 
         lo_slack.addWidget(gb_custom_channel)
 
+    # Create the User Settings UI
     @err_catcher(__name__)
     def createUserSettingsUI(self, origin):
         if not hasattr(origin, "w_slackUserTab"):
@@ -93,6 +96,7 @@ class SettingsUI:
 
             origin.addTab(origin.w_slackUserTab, "Slack")
 
+    # Create the Slack OAuth Token Settings Menu
     @err_catcher(__name__)
     def createSlackTokenSettingsMenu(self, lo_slack, origin):
         l_slack_logo = self.grabSlacklogo()
@@ -123,6 +127,7 @@ class SettingsUI:
         lo_slack.addWidget(origin.b_slack_token)
         lo_slack.setAlignment(origin.b_slack_token, Qt.AlignBottom | Qt.AlignCenter)
 
+    # Create the Notifications Settings Menu
     @err_catcher(__name__)
     def createNotificationsSettingsMenu(self, lo_slack, origin):
         gb_notifications = QGroupBox()
@@ -180,6 +185,7 @@ class SettingsUI:
         lo_slack.addWidget(gb_notifications)
         lo_slack.setAlignment(lo_notifications, Qt.AlignTop | Qt.AlignLeft)
 
+    # Create the Server Settings Menu
     @err_catcher(__name__)
     def createServerSettingsMenu(self, lo_slack, origin):
         gb_server = QGroupBox()
@@ -254,6 +260,7 @@ class SettingsUI:
         lo_slack.setAlignment(lo_server, Qt.AlignTop | Qt.AlignLeft)
         lo_slack.addStretch()
 
+    # Grab the Slack logo
     @err_catcher(__name__)
     def grabSlacklogo(self):
         l_slack = QLabel()
@@ -272,6 +279,7 @@ class SettingsUI:
 
         return l_slack
 
+    # Grab the Help Icon
     @err_catcher(__name__)
     def grabHelpIcon(self):
         l_help = QLabel()

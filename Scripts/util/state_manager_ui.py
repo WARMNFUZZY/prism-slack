@@ -12,6 +12,7 @@ class StateManagerUI:
     def __init__(self, core):
         self.core = core
 
+    # Create the Slack section of the State Manager UI
     @err_catcher(__name__)
     def createStateManagerSlackUI(self, state):
         state.cb_userPool = QComboBox()
@@ -42,6 +43,7 @@ class StateManagerUI:
         state.gb_slack.layout().addLayout(lo_slack_publish)
         state.gb_slack.layout().addLayout(lo_slack_notify)
 
+    # Remove the Slack section of the State Manager UI
     @err_catcher(__name__)
     def removeCleanupLayout(self, layout, attribute_name, state):
         if hasattr(state, attribute_name):
