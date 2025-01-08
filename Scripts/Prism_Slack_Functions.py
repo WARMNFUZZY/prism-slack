@@ -3,14 +3,9 @@
 # Contact: john.d.kesig@gmail.com
 
 import os
-import sys
-import requests
-import subprocess
-import glob
-import re
-import json
 
-from pathlib import Path
+import requests
+import json
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -227,7 +222,6 @@ class Prism_Slack_Functions(object):
                 if ext in ["exr", "png", "jpg"]:
                     if rangeType == "Single Frame":
                         outputList = [outputPath]
-                        mode = "ImageRender"
 
                     if rangeType != "Single Frame" and startFrame == endFrame:
                         file = outputPath.replace(
@@ -241,7 +235,6 @@ class Prism_Slack_Functions(object):
                                 outputPath
                             )
                             outputList = [convert]
-                            mode = "ConvertIR"
                         else:
                             option = state.cb_mediaConversion.currentText().lower()
                             ext = self.retrieveExtension(option)
@@ -261,7 +254,6 @@ class Prism_Slack_Functions(object):
                             converted_files = f"{converted_directory}/{file} ({ext})_{aov_directory}.{ext}"
 
                             outputList = [converted_files]
-                            mode = "ImageRender"
 
                             if ext in ["png", "jpg"]:
                                 framePad = "#" * self.core.framePadding
@@ -272,7 +264,6 @@ class Prism_Slack_Functions(object):
                                     )
                                 )
                                 outputList = [convert]
-                                mode = "ConvertIR"
 
                 self.publishToSlack(
                     outputList, seq, shot, identifier, version, mode="SM"
@@ -306,7 +297,7 @@ class Prism_Slack_Functions(object):
                 self.shot,
                 self.identifier,
                 self.version,
-                state="Media",
+                mode="Media",
             )
         )
 
@@ -599,9 +590,9 @@ class Prism_Slack_Functions(object):
 
         try:
             access_token = self.getAccessToken()
-        except:
+        except Exception as e:
             self.core.popup(
-                "Failed to retrieve Slack access token. Please check your configuration."
+                f"Failed to retrieve Slack access token. Please check your configuration.\n\n{e}"
             )
             return
 
