@@ -20,14 +20,14 @@ from integration.user_pools import UserPools
 from integration.slack_api import UploadContent, UserInfo, PostMessage
 
 # Updated import to use relative path
-from Slack.Scripts.util.dialogs import (
+from util.dialogs import (
     WarningDialog,
     AdditionalInfoDialog,
     SuccessfulPOST,
     UploadDialog,
 )
-from Slack.Scripts.util.state_manager_ui import StateManagerUI
-from Slack.Scripts.util.convert_image_sequence import ConvertImageSequence
+from util.state_manager_ui import StateManagerUI
+from util.convert_image_sequence import ConvertImageSequence
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -583,7 +583,7 @@ class Prism_Slack_Functions(object):
             SuccessfulPOST(uploaded, method, self.upload_message)
 
     @err_catcher(name=__name__)
-    def publishToSlack(self, file, seq, shot, identifier, version, state):
+    def publishToSlack(self, file, seq, shot, identifier, version, mode):
         current_project = self.core.getConfig(
             "globals", "project_name", configPath=self.core.prismIni
         ).lower()
@@ -596,10 +596,10 @@ class Prism_Slack_Functions(object):
             )
             return
 
-        if state == "SM":
-            method = "SM"
-        else:
-            method = "Media"
+        # if state == "SM":
+        #     method = "SM"
+        # else:
+        #     method = "Media"
 
         conversation_id = self.getChannelId(access_token, current_project)
         file_upload = file[0]
@@ -618,7 +618,7 @@ class Prism_Slack_Functions(object):
                 shot,
                 identifier,
                 version,
-                method,
+                mode,
             ),
         )
 

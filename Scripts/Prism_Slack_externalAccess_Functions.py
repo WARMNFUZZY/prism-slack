@@ -16,9 +16,9 @@ from qtpy.QtWidgets import *
 
 from server.controls import ServerControls
 from integration.slack_config import SlackConfig
-from Slack.Scripts.util.settings_ui import SettingsUI
-from Slack.Scripts.util.tray_ui import TrayUI
-from Slack.Scripts.util.dialogs import *
+from util.settings_ui import SettingsUI
+from util.tray_ui import TrayUI
+from util.dialogs import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
