@@ -555,9 +555,17 @@ class Prism_Slack_Functions(object):
             self.upload = self.slack_upload.uploadContent(
                 access_token, conversation_id, file_upload
             )
-
-            # Wait for 2s before posting the message (this is due to the fact that Slack could take a while to process the file)
-            time.sleep(2)
+            if self.upload.get("ok"):
+                file_stats = os.stat(file_upload)
+                file_size = file_stats.st_size
+                # Wait for upload to complete and post. Slack has a rate limit of 1MB/s
+                delay = file_size / 1024 / 1024
+                if delay < 2:
+                    time.sleep(2)
+                elif delay > 20:
+                    time.sleep(20)
+                else:
+                    time.sleep(delay)
 
             # Post the message to the channel
             self.slack_message.postProgressMessage(
@@ -627,10 +635,36 @@ class Prism_Slack_Functions(object):
         studio = self.core.plugins.getPlugin("Studio")
         return studio
 
-    @err_catcher(__name__)
-    def submitPythonJob(self, origin, jobId, jobOutputFile, jobName):
-        jobData = origin.stateManager.submittedDlJobData[jobId]
-        code = """
-import os
 
-"""
+#     @err_catcher(__name__)
+#     def submitPythonJob(self, origin, jobId, jobOutputFile, jobName):
+#         jobData = origin.stateManager.submittedDlJobData[jobId]
+#         code = """
+# import sys
+
+# root = \"%s\"
+# sys.path.append(root + "/Scripts")
+
+# import PrismCore
+# pcore = PrismCore.create(prismArgs=["noUI", "loadProject"])
+# path = r\"%s\"
+# """(self.core.prismRoot, os.path.expandvars(jobOutputFile))
+
+#         if state.gb_submit.isChecked():
+#             deadline = self.core.getPlugin("Deadline")
+#             deadline.submitPythonJob(
+#                 code,
+#                 jobName,
+#                 jobPrio=80,
+#                 jobPool=jobData["jobInfos"]["Pool"],
+#                 jobSndPool=jobData["jobInfos"]["SecondaryPool"],
+#                 jobGroup=jobData["jobInfos"]["Group"],
+#                 jobTimeOut=jobData["jobInfos"]["TaskTimeoutMinutes"],
+#                 jobMachineLimit=jobData["jobInfos"]["MachineLimit"],
+#                 jobComment="Prism-Submission-Update_Master",
+#                 jobBatchName=jobData["jobInfos"].get("BatchName"),
+#                 frames="1",
+#                 suspended=jobData["jobInfos"].get("InitialStatus") == "Suspended",
+#                 jobDependencies=[jobId],
+#                 state=origin,
+#             )
