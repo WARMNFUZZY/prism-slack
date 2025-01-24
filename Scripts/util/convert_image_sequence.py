@@ -17,14 +17,21 @@ class ConvertImageSequence:
         # Define the "slack" output folder
         folder_path = os.path.dirname(sequence)
         slack_folder = os.path.join(folder_path, "slack")
+        self.core.popup("Converting Image Sequence")
 
         if not os.path.exists(slack_folder):
             os.makedirs(slack_folder)
 
         # Construct input and output paths
-        input_sequence = sequence.replace(".####.", ".%04d.")
-        basename = os.path.basename(sequence).split(".####.")[0]
+        if self.core.appPlugin.pluginName == "Houdini":
+            input_sequence = sequence.replace(".$F4.", ".%04d.")
+        else:
+            input_sequence = sequence.replace(".####.", ".%04d.")
+
+        self.core.popup(f"Input Sequence: {input_sequence}")
+        basename = os.path.basename(input_sequence).split(".%04d.")[0]
         output_file = os.path.join(slack_folder, basename + ".mp4")
+        self.core.popup(f"Basename: {basename}\nOutput File: {output_file}")
 
         ffmpegPath = os.path.join(
             self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
@@ -36,7 +43,7 @@ class ConvertImageSequence:
             return
 
         # Search for matching files to determine the start frame
-        pattern = sequence.replace(".####.", ".*.")
+        pattern = input_sequence.replace(".%04d.", ".*.")
         files = sorted(glob.glob(pattern))
         if not files:
             self.core.popup(f"No files found matching pattern: {pattern}")

@@ -7,6 +7,8 @@ import os
 import requests
 import json
 
+from pprint import pprint
+
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -92,14 +94,14 @@ class Prism_Slack_Functions(object):
         identifier = state.l_taskName.text()
         if state.gb_slack.isChecked():
             if state.chb_slackPublish.isChecked():
-                outputPath = kwargs.get("settings", None)["outputName"]
+                outputPath = kwargs.get("outputpath", None)
 
-                seq, shot, identifier, version = self.getVersionInfo(outputPath)
+                seq, shot, identifier, version = self.getVersionInfo(outputPath, mode="pb")
 
                 ext = os.path.splitext(outputPath)[1].replace(".", "")
 
                 rangeType = state.cb_rangeType.currentText()
-
+                self.core.popup(f"Seq: {seq}, \nShot: {shot}, \nIdentifier: {identifier}, \nVersion: {version}, \nExt: {ext}, \nRangeType: {rangeType}")
                 if rangeType == "Single Frame" or rangeType in ["Scene", "Shot"]:
                     startFrame = state.l_rangeStart.text()
                     endFrame = state.l_rangeEnd.text()
@@ -114,7 +116,7 @@ class Prism_Slack_Functions(object):
                     )
                     return
 
-                if ext in [".png", ".jpg"]:
+                if ext in ["png", "jpg"]:
                     if rangeType == "Single Frame":
                         outputList = [outputPath]
 
@@ -150,7 +152,7 @@ class Prism_Slack_Functions(object):
                                 sequence
                             )
                             outputList = [convert]
-
+                self.core.popup(outputList)
                 self.publishToSlack(
                     outputList, seq, shot, identifier, version, mode="SM"
                 )
@@ -199,7 +201,7 @@ class Prism_Slack_Functions(object):
             if state.chb_slackPublish.isChecked():
                 outputPath = kwargs.get("settings", None)["outputName"]
 
-                seq, shot, identifier, version = self.getVersionInfo(outputPath)
+                seq, shot, identifier, version = self.getVersionInfo(outputPath, mode="render")
 
                 ext = os.path.splitext(outputPath)[1].replace(".", "")
 
@@ -505,8 +507,11 @@ class Prism_Slack_Functions(object):
         return proj
 
     @err_catcher(name=__name__)
-    def getVersionInfo(self, file):
-        versioninfo = os.path.dirname(os.path.dirname(file)) + "/" + "versioninfo.json"
+    def getVersionInfo(self, file, mode):
+        if mode == "render":
+            versioninfo = os.path.dirname(os.path.dirname(file)) + "/" + "versioninfo.json"
+        else:
+            versioninfo = os.path.dirname(file) + "/" + "versioninfo.json"
         versioninfo = versioninfo.replace("\\", "/")
 
         with open(versioninfo, "r") as f:
@@ -553,33 +558,34 @@ class Prism_Slack_Functions(object):
         try:
             # Upload the file to Slack
             self.upload = self.slack_upload.uploadContent(
-                access_token, conversation_id, file_upload
+                access_token, conversation_id, file_upload, slack_user, comment
             )
-            if self.upload.get("ok"):
-                file_stats = os.stat(file_upload)
-                file_size = file_stats.st_size
-                # Wait for upload to complete and post. Slack has a rate limit of 1MB/s
-                delay = file_size / 1024 / 1024
-                if delay < 2:
-                    time.sleep(2)
-                elif delay > 20:
-                    time.sleep(20)
-                else:
-                    time.sleep(delay)
+
+            # if self.upload.get("ok"):
+            #     file_stats = os.stat(file_upload)
+            #     file_size = file_stats.st_size
+            #     # Wait for upload to complete and post. Slack has a rate limit of 1MB/s
+            #     delay = file_size / 1024 / 1024
+            #     if delay < 2:
+            #         time.sleep(2)
+            #     elif delay > 20:
+            #         time.sleep(20)
+            #     else:
+            #         time.sleep(delay)
 
             # Post the message to the channel
-            self.slack_message.postProgressMessage(
-                access_token,
-                conversation_id,
-                sequence,
-                shot,
-                identifier,
-                version,
-                slack_user,
-                user_avatar,
-                comment,
-                status,
-            )
+            # self.slack_message.postProgressMessage(
+            #     access_token,
+            #     conversation_id,
+            #     sequence,
+            #     shot,
+            #     identifier,
+            #     version,
+            #     slack_user,
+            #     user_avatar,
+            #     comment,
+            #     status,
+            # )
 
             # Post the successful upload message
             uploaded = True
@@ -587,7 +593,7 @@ class Prism_Slack_Functions(object):
 
         except Exception as e:
             uploaded = False
-            print(f"Failed to upload file to Slack: {e}")
+            self.core.popup(f"Failed to upload file to Slack: {e}")
             SuccessfulPOST(uploaded, method, self.upload_message)
 
     @err_catcher(name=__name__)
@@ -603,11 +609,6 @@ class Prism_Slack_Functions(object):
                 f"Failed to retrieve Slack access token. Please check your configuration.\n\n{e}"
             )
             return
-
-        # if state == "SM":
-        #     method = "SM"
-        # else:
-        #     method = "Media"
 
         conversation_id = self.getChannelId(access_token, current_project)
         file_upload = file[0]
@@ -635,36 +636,37 @@ class Prism_Slack_Functions(object):
         studio = self.core.plugins.getPlugin("Studio")
         return studio
 
+    @err_catcher(__name__)
+    def submitPythonJob(self, origin, jobId, jobOutputFile, jobName):
+        jobData = origin.stateManager.submittedDlJobData[jobId]
+        code = """
+import sys
 
-#     @err_catcher(__name__)
-#     def submitPythonJob(self, origin, jobId, jobOutputFile, jobName):
-#         jobData = origin.stateManager.submittedDlJobData[jobId]
-#         code = """
-# import sys
+root = \"%s\"
+sys.path.append(root + "/Scripts")
 
-# root = \"%s\"
-# sys.path.append(root + "/Scripts")
+import PrismCore
+pcore = PrismCore.create(prismArgs=["noUI", "loadProject"])
+path = r\"%s\"
 
-# import PrismCore
-# pcore = PrismCore.create(prismArgs=["noUI", "loadProject"])
-# path = r\"%s\"
-# """(self.core.prismRoot, os.path.expandvars(jobOutputFile))
+print(f'PRISM OUTPUT FILE' {jobOutputFile})
+"""(self.core.prismRoot, os.path.expandvars(jobOutputFile))
 
-#         if state.gb_submit.isChecked():
-#             deadline = self.core.getPlugin("Deadline")
-#             deadline.submitPythonJob(
-#                 code,
-#                 jobName,
-#                 jobPrio=80,
-#                 jobPool=jobData["jobInfos"]["Pool"],
-#                 jobSndPool=jobData["jobInfos"]["SecondaryPool"],
-#                 jobGroup=jobData["jobInfos"]["Group"],
-#                 jobTimeOut=jobData["jobInfos"]["TaskTimeoutMinutes"],
-#                 jobMachineLimit=jobData["jobInfos"]["MachineLimit"],
-#                 jobComment="Prism-Submission-Update_Master",
-#                 jobBatchName=jobData["jobInfos"].get("BatchName"),
-#                 frames="1",
-#                 suspended=jobData["jobInfos"].get("InitialStatus") == "Suspended",
-#                 jobDependencies=[jobId],
-#                 state=origin,
-#             )
+        if state.gb_submit.isChecked():
+            deadline = self.core.getPlugin("Deadline")
+            deadline.submitPythonJob(
+                code,
+                jobName,
+                jobPrio=80,
+                jobPool=jobData["jobInfos"]["Pool"],
+                jobSndPool=jobData["jobInfos"]["SecondaryPool"],
+                jobGroup=jobData["jobInfos"]["Group"],
+                jobTimeOut=jobData["jobInfos"]["TaskTimeoutMinutes"],
+                jobMachineLimit=jobData["jobInfos"]["MachineLimit"],
+                jobComment="Prism-Submission-Update_Master",
+                jobBatchName=jobData["jobInfos"].get("BatchName"),
+                frames="1",
+                suspended=jobData["jobInfos"].get("InitialStatus") == "Suspended",
+                jobDependencies=[jobId],
+                state=origin,
+            )

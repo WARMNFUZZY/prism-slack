@@ -2,6 +2,8 @@ import requests
 import os
 import json
 
+from pprint import pprint
+
 from server.blocks import SlackBlocks
 
 
@@ -10,7 +12,7 @@ class UploadContent:
         self.core = core
 
     # Upload a file to a channel
-    def uploadContent(self, access_token, channel, file):
+    def uploadContent(self, access_token, conversation_id, file, slack_user, comment):
         # Get the files size required for the upload
         file_stats = os.stat(file)
         file_size = file_stats.st_size
@@ -43,7 +45,7 @@ class UploadContent:
         finally:
             # Complete the upload process required by Slack
             post_url = "https://slack.com/api/files.completeUploadExternal"
-            post_payload = {"files": [{"id": id, "title": file}], "channel_id": channel}
+            post_payload = {"files": [{"id": id, "title": file}], "channel_id": conversation_id, "initial_comment": f"Artst: <@{slack_user}>\n{comment}"}
 
             response = requests.post(post_url, headers=headers, json=post_payload)
             data = response.json()
@@ -75,7 +77,7 @@ class PostMessage:
             ),
             self.slack_blocks.comments(comment),
         ]
-
+      
         if status == "Request Review":
             blocks.append(
                 self.slack_blocks.divider(),
@@ -93,6 +95,7 @@ class PostMessage:
         payload = {"channel": channel, "blocks": blocks, "metadata": metadata}
 
         response = requests.post(url, headers=headers, json=payload)
+        pprint(response.json())
 
     # Post a message to a user on a channel
     def postChannelMessage(self, access_token, channel, message):
