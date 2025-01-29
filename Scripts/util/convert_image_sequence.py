@@ -82,3 +82,76 @@ class ConvertImageSequence:
 
         output_file = output_file.replace("\\", "/")
         return output_file
+
+
+class ConversionCheck:
+    def __init__(self, core):
+        self.core = core
+    
+    @err_catcher(name=__name__)
+    def checkConversion(self, output_file, state):
+        ext = os.path.splitext(output_file)[1].replace(".", "")
+
+        rangeType = state.cb_rangeType.currentText()
+
+        if rangeType == "Single Frame" or rangeType in ["Scene", "Shot"]:
+            startFrame = state.l_rangeStart.text()
+            endFrame = state.l_rangeEnd.text()
+
+        if rangeType == "Custom":
+            startFrame = state.sp_rangeStart.text()
+            endFrame = state.sp_rangeEnd.text()
+
+        if rangeType == "Expression":
+            self.core.popup(
+                "Your render has been published but the Slack plugin does not support expression ranges yet."
+            )
+            return
+
+        if ext in ["exr", "png", "jpg"]:
+            if rangeType == "Single Frame":
+                outputList = [output_file]
+
+            if rangeType != "Single Frame" and startFrame == endFrame:
+                file = output_file.replace(
+                    "#" * self.core.framePadding, str(startFrame)
+                )
+                outputList = [file]
+
+            if rangeType != "Single Frame" and startFrame < endFrame:
+                if state.chb_mediaConversion.isChecked() is False:
+                    convert = ConvertImageSequence.convertImageSequence(
+                        output_file
+                    )
+                    outputList = [convert]
+                else:
+                    option = state.cb_mediaConversion.currentText().lower()
+                    ext = self.retrieveExtension(option)
+
+                    base = os.path.basename(output_file).split(".")[0]
+                    version_directory = os.path.dirname(
+                        os.path.dirname(output_file)
+                    )
+                    aov_directory = os.path.basename(
+                        os.path.dirname(output_file)
+                    )
+                    file = base.split(f"_{aov_directory}")[0]
+
+                    converted_directory = (
+                        f"{version_directory} ({ext})/{aov_directory}"
+                    )
+                    converted_files = f"{converted_directory}/{file} ({ext})_{aov_directory}.{ext}"
+
+                    outputList = [converted_files]
+
+                    if ext in ["png", "jpg"]:
+                        framePad = "#" * self.core.framePadding
+                        sequence = f"{converted_directory}/{file} ({ext})_{aov_directory}.{framePad}.{ext}"
+                        convert = (
+                            ConvertImageSequence.convertImageSequence(
+                                sequence
+                            )
+                        )
+                        outputList = [convert]
+        
+        return outputList
