@@ -4,8 +4,10 @@ import socket
 import subprocess
 from pathlib import Path
 
+from qtpy.QtWidgets import *
+
 from integration.slack_config import SlackConfig
-from Slack.Scripts.util.dialogs import ServerStartWarning, ServerStopWarning
+from util.dialogs import ServerStartWarning, ServerStopWarning
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -23,7 +25,7 @@ class ServerControls:
             self.core.getPlugin("Slack").pluginDirectory, "Scripts"
         )
         bolt_path = os.path.join(scripts_path, "server", "bolt.py")
-        self.config = self.slack_config.loadConfig(mode="studio")
+        self.config = self.slack_config.loadConfig(type="studio")
         token = self.config["slack"]["token"]
         app_token = self.config["slack"]["server"]["app_token"]
         executable = os.path.join(self.core.prismLibs, "Python311", "python.exe")
@@ -51,11 +53,11 @@ class ServerControls:
                 )
 
                 # Update the server status/machine/pid in the config file
-                pipeline_data = self.slack_config.loadConfig(mode="studio")
+                pipeline_data = self.slack_config.loadConfig(type="studio")
                 pipeline_data["slack"]["server"]["status"] = "Running"
                 pipeline_data["slack"]["server"]["machine"] = socket.gethostname()
                 pipeline_data["slack"]["server"]["pid"] = self.bolt.pid
-                self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
+                self.slack_config.saveConfigSetting(pipeline_data, type="studio")
 
         except Exception as e:
             self.core.popup(f"Error starting the Slack Bolt Server: {e}")
@@ -63,18 +65,18 @@ class ServerControls:
 
     # Reset the server status in the conig file
     def resetServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(mode="studio")
+        pipeline_data = self.slack_config.loadConfig(type="studio")
         pipeline_data["slack"]["server"]["status"] = ""
         pipeline_data["slack"]["server"]["machine"] = ""
         pipeline_data["slack"]["server"]["pid"] = ""
-        self.slack_config.saveConfigSetting(pipeline_data, mode="studio")
+        self.slack_config.saveConfigSetting(pipeline_data, type="studio")
 
         self.checkServerStatus(origin)
 
     # Stop the Slack Bolt Server
     @err_catcher(name=__name__)
     def stopServer(self):
-        self.config = self.slack_config.loadConfig(mode="studio")
+        self.config = self.slack_config.loadConfig(type="studio")
         status = self.config["slack"]["server"].get("status")
         pid = self.config["slack"]["server"].get("pid")
         print(pid)
@@ -114,7 +116,7 @@ class ServerControls:
     # Check the status of the Slack Bolt Server from the config file
     @err_catcher(name=__name__)
     def checkServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(mode="studio")
+        pipeline_data = self.slack_config.loadConfig(type="studio")
         self.slack_config.checkSlackOptions(pipeline_data)
 
         status = pipeline_data["slack"]["server"].get("status")

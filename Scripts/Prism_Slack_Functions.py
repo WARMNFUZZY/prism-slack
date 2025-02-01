@@ -21,7 +21,6 @@ from integration.slack_config import SlackConfig
 from integration.user_pools import UserPools
 from integration.slack_api import UploadContent, UserInfo, PostMessage
 
-# Updated import to use relative path
 from util.dialogs import (
     WarningDialog,
     AdditionalInfoDialog,
@@ -30,6 +29,7 @@ from util.dialogs import (
 )
 from util.state_manager_ui import StateManagerUI
 from util.convert_image_sequence import ConvertImageSequence
+from util.deadline_submission import DeadlineScript
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -46,6 +46,7 @@ class Prism_Slack_Functions(object):
         self.slack_user_info = UserInfo(self.core)
         self.slack_blocks = SlackBlocks()
         self.convert_image_sequence = ConvertImageSequence(self.core)
+        self.deadline_submission = DeadlineScript(self.core, self.plugin)
 
         self.core.registerCallback(
             "mediaPlayerContextMenuRequested",
@@ -53,9 +54,21 @@ class Prism_Slack_Functions(object):
             plugin=self,
         )
         self.core.registerCallback("onStateStartup", self.onStateStartup, plugin=self)
-        self.core.registerCallback("postPlayblast", self.postPlayblast, plugin=self)
-        self.core.registerCallback("postRender", self.postRender, plugin=self)
+        self.core.registerCallback(
+            "postPlayblast", self.postPlayblast, plugin=self, priority=30
+        )
+        self.core.registerCallback(
+            "postRender", self.postRender, plugin=self, priority=30
+        )
         self.core.registerCallback("preRender", self.preRender, plugin=self)
+        self.core.registerCallback(
+            "postSubmit_Deadline", self.postSubmit_Deadline, plugin=self, priority=30
+        )
+
+    # Sets the plugin as active
+    @err_catcher(name=__name__)
+    def isActive(self):
+        return True
 
     @err_catcher(name=__name__)
     def onStateStartup(self, state):
@@ -79,11 +92,38 @@ class Prism_Slack_Functions(object):
             self.lo_slack_group.setContentsMargins(-1, 15, -1, -1)
             state.gb_slack.setLayout(self.lo_slack_group)
 
+            existing_widgets = []
+            for i in range(lo.count()):
+                widget = lo.itemAt(i).widget()
+                existing_widgets.append(widget)
+
             lo.addWidget(state.gb_slack)
 
         state.gb_slack.toggled.connect(
             lambda toggled: self.createSlackSubmenu(toggled, state)
         )
+
+    @err_catcher(name=__name__)
+    def createSlackSubmenu(self, toggled, state):
+        try:
+            self.state_manager_ui = StateManagerUI(self.core)
+            # If the group box is toggled on
+            if toggled:
+                if not hasattr(state, "cb_userPool"):
+                    self.state_manager_ui.createStateManagerSlackUI(state)
+                    self.populateUserPool(state)
+            else:
+                layout = state.gb_slack.layout()
+                self.state_manager_ui.removeCleanupLayout(
+                    layout, "lo_slack_publish", state
+                )
+                self.state_manager_ui.removeCleanupLayout(
+                    layout, "lo_slack_notify", state
+                )
+        except Exception as e:
+            self.core.popup(
+                "Failed to create Slack submenu. Please check your configuration"
+            )
 
     # Handle output result after playblast
     @err_catcher(name=__name__)
@@ -91,73 +131,12 @@ class Prism_Slack_Functions(object):
         global state
         state = kwargs.get("state", None)
 
-        identifier = state.l_taskName.text()
         if state.gb_slack.isChecked():
             if state.chb_slackPublish.isChecked():
-                outputPath = kwargs.get("outputpath", None)
+                output = kwargs.get("outputpath", None)
+                comment = self.getSlackComment()
 
-                seq, shot, identifier, version = self.getVersionInfo(outputPath, mode="pb")
-
-                ext = os.path.splitext(outputPath)[1].replace(".", "")
-
-                rangeType = state.cb_rangeType.currentText()
-                self.core.popup(f"Seq: {seq}, \nShot: {shot}, \nIdentifier: {identifier}, \nVersion: {version}, \nExt: {ext}, \nRangeType: {rangeType}")
-                if rangeType == "Single Frame" or rangeType in ["Scene", "Shot"]:
-                    startFrame = state.l_rangeStart.text()
-                    endFrame = state.l_rangeEnd.text()
-
-                if rangeType == "Custom":
-                    startFrame = state.sp_rangeStart.text()
-                    endFrame = state.sp_rangeEnd.text()
-
-                if rangeType == "Expression":
-                    self.core.popup(
-                        "Your render has been published but the Slack plugin does not support expression ranges yet."
-                    )
-                    return
-
-                if ext in ["png", "jpg"]:
-                    if rangeType == "Single Frame":
-                        outputList = [outputPath]
-
-                    if rangeType != "Single Frame" and startFrame == endFrame:
-                        file = outputPath.replace(
-                            "#" * self.core.framePadding, str(startFrame)
-                        )
-                        outputList = [file]
-
-                    if rangeType != "Single Frame" and startFrame < endFrame:
-                        if state.chb_mediaConversion.isChecked() is False:
-                            convert = self.convert_image_sequence.convertImageSequence(
-                                outputPath
-                            )
-                            outputList = [convert]
-
-                    if state.chb_mediaConversion.isChecked() is True:
-                        option = state.cb_mediaConversion.currentText().lower()
-
-                        base = os.path.basename(outputPath).split(".")[0]
-                        top_directory = os.path.dirname(outputPath)
-
-                        converted_directory = f"{top_directory} ({ext})"
-                        converted_file = f"{converted_directory}/{base} ({ext}).{ext}"
-                        outputList = [converted_file]
-
-                        if option in ["png", "jpg"]:
-                            framePad = "#" * self.core.framePadding
-                            sequence = (
-                                f"{converted_directory}/{base} ({ext}).{framePad}.{ext}"
-                            )
-                            convert = self.convert_image_sequence.convertImageSequence(
-                                sequence
-                            )
-                            outputList = [convert]
-                self.core.popup(outputList)
-                self.publishToSlack(
-                    outputList, seq, shot, identifier, version, mode="SM"
-                )
-
-        return
+                self.publishToSlack(output, comment, type="pb", ui="SM")
 
     @err_catcher(name=__name__)
     def preRender(self, **kwargs):
@@ -196,86 +175,60 @@ class Prism_Slack_Functions(object):
         global state
         state = kwargs.get("state", None)
 
-        identifier = state.l_taskName.text()
         if state.gb_slack.isChecked():
             if state.chb_slackPublish.isChecked():
-                outputPath = kwargs.get("settings", None)["outputName"]
+                output = kwargs.get("settings", None)["outputName"]
+                comment = self.getSlackComment()
 
-                seq, shot, identifier, version = self.getVersionInfo(outputPath, mode="render")
-
-                ext = os.path.splitext(outputPath)[1].replace(".", "")
-
-                rangeType = state.cb_rangeType.currentText()
-
-                if rangeType == "Single Frame" or rangeType in ["Scene", "Shot"]:
-                    startFrame = state.l_rangeStart.text()
-                    endFrame = state.l_rangeEnd.text()
-
-                if rangeType == "Custom":
-                    startFrame = state.sp_rangeStart.text()
-                    endFrame = state.sp_rangeEnd.text()
-
-                if rangeType == "Expression":
-                    self.core.popup(
-                        "Your render has been published but the Slack plugin does not support expression ranges yet."
-                    )
-                    return
-
-                if ext in ["exr", "png", "jpg"]:
-                    if rangeType == "Single Frame":
-                        outputList = [outputPath]
-
-                    if rangeType != "Single Frame" and startFrame == endFrame:
-                        file = outputPath.replace(
-                            "#" * self.core.framePadding, str(startFrame)
-                        )
-                        outputList = [file]
-
-                    if rangeType != "Single Frame" and startFrame < endFrame:
-                        if state.chb_mediaConversion.isChecked() is False:
-                            convert = self.convert_image_sequence.convertImageSequence(
-                                outputPath
-                            )
-                            outputList = [convert]
-                        else:
-                            option = state.cb_mediaConversion.currentText().lower()
-                            ext = self.retrieveExtension(option)
-
-                            base = os.path.basename(outputPath).split(".")[0]
-                            version_directory = os.path.dirname(
-                                os.path.dirname(outputPath)
-                            )
-                            aov_directory = os.path.basename(
-                                os.path.dirname(outputPath)
-                            )
-                            file = base.split(f"_{aov_directory}")[0]
-
-                            converted_directory = (
-                                f"{version_directory} ({ext})/{aov_directory}"
-                            )
-                            converted_files = f"{converted_directory}/{file} ({ext})_{aov_directory}.{ext}"
-
-                            outputList = [converted_files]
-
-                            if ext in ["png", "jpg"]:
-                                framePad = "#" * self.core.framePadding
-                                sequence = f"{converted_directory}/{file} ({ext})_{aov_directory}.{framePad}.{ext}"
-                                convert = (
-                                    self.convert_image_sequence.convertImageSequence(
-                                        sequence
-                                    )
-                                )
-                                outputList = [convert]
-
-                self.publishToSlack(
-                    outputList, seq, shot, identifier, version, mode="SM"
-                )
+                self.publishToSlack(output, state, comment, type="render", ui="SM")
         return
 
-    # Sets the plugin as active
     @err_catcher(name=__name__)
-    def isActive(self):
-        return True
+    def postSubmit_Deadline(self, origin, result, jobInfos, pluginInfos, arguments):
+        deadline = self.core.getPlugin("Deadline")
+
+        job = jobInfos.get("BatchName") or jobInfos.get("Name")
+        if not job:
+            print("ERROR: Job name not found, skipping submission.")
+            return
+
+        if "_publishToSlack" in job:
+            print(
+                f"Job {job} is already a publishToSlack job. Skipping post-job submission."
+            )
+            return
+
+        job_batch = job
+        output = jobInfos.get("OutputFilename0")
+        output = output.replace("\\", "/")
+        print(str(state))
+        print(state.__dict__)
+        print(state.cb_rangeType.currentText())
+        job_dependency = deadline.getJobIdFromSubmitResult(result)
+        if not job_dependency:
+            print("ERROR: Could not extract Job ID from Deadline response.")
+            return
+        comment = self.getSlackComment()
+        code = self.deadline_submission.deadline_submission_script(
+            output, state, comment, type="render", ui="DL"
+        )
+
+        # deadline.submitPythonJob(
+        #     code=code,
+        #     jobName=job + "_publishToSlack",
+        #     jobPrio=80,
+        #     jobPool=jobInfos.get("Pool"),
+        #     jobSndPool=jobInfos.get("SecondaryPool"),
+        #     jobGroup=jobInfos.get("Group"),
+        #     jobTimeOut=180,
+        #     jobMachineLimit=jobInfos.get("MachineLimit"),
+        #     # jobBatchName = job_batch,
+        #     frames="1",
+        #     suspended=jobInfos.get("InitialStatus") == "Suspended",
+        #     jobDependencies=job_dependency,
+        #     args=arguments,
+        #     state=state,
+        # )
 
     # Get current version in the Media tab in the Prism Project Browser
     @err_catcher(name=__name__)
@@ -283,50 +236,19 @@ class Prism_Slack_Functions(object):
         if not type(origin.origin).__name__ == "MediaBrowser":
             return
 
-        self.identifier = origin.origin.getCurrentIdentifier()["identifier"]
-        self.sequence = origin.origin.getCurrentIdentifier()["sequence"]
-        self.shot = origin.origin.getCurrentIdentifier()["shot"]
-        self.version = origin.origin.getCurrentVersion()["version"]
-
         action = QAction("Publish to Slack", origin)
         iconPath = os.path.join(self.pluginDirectory, "Resources", "slack-icon.png")
         icon = self.core.media.getColoredIcon(iconPath)
+        converted = None
 
         action.triggered.connect(
             lambda: self.publishToSlack(
-                origin.seq,
-                self.sequence,
-                self.shot,
-                self.identifier,
-                self.version,
-                mode="Media",
+                origin.seq, converted, self.getSlackComment(), type="Media", ui="Media"
             )
         )
 
         menu.insertAction(menu.actions()[-1], action)
         action.setIcon(icon)
-
-    @err_catcher(name=__name__)
-    def createSlackSubmenu(self, toggled, state):
-        try:
-            self.state_manager_ui = StateManagerUI(self.core)
-            # If the group box is toggled on
-            if toggled:
-                if not hasattr(state, "cb_userPool"):
-                    self.state_manager_ui.createStateManagerSlackUI(state)
-                    self.populateUserPool(state)
-            else:
-                layout = state.gb_slack.layout()
-                self.state_manager_ui.removeCleanupLayout(
-                    layout, "lo_slack_publish", state
-                )
-                self.state_manager_ui.removeCleanupLayout(
-                    layout, "lo_slack_notify", state
-                )
-        except Exception as e:
-            self.core.popup(
-                f"Failed to create Slack submenu. Please check your configuration"
-            )
 
     @err_catcher(name=__name__)
     def populateUserPool(self, state):
@@ -371,22 +293,6 @@ class Prism_Slack_Functions(object):
                 sub_layout.deleteLater()
 
                 delattr(state, attribute_name)
-
-    # Get proper extension from media conversion type
-    @err_catcher(name=__name__)
-    def retrieveExtension(self, option):
-        if "png" in option:
-            ext = "png"
-        elif "jpg" in option:
-            ext = "jpg"
-        elif "mp4" in option:
-            ext = "mp4"
-        elif "mov" in option:
-            ext = "mov"
-        else:
-            ext = option
-
-        return ext
 
     @err_catcher(name=__name__)
     def getNotifyUserPool(self):
@@ -439,7 +345,6 @@ class Prism_Slack_Functions(object):
     @err_catcher(name=__name__)
     def getSlackUserId(self, username, user_pool):
         for user in user_pool:
-            print(user)
             if username == user["display_name"]:
                 return user.get("id")
 
@@ -507,10 +412,12 @@ class Prism_Slack_Functions(object):
         return proj
 
     @err_catcher(name=__name__)
-    def getVersionInfo(self, file, mode):
-        if mode == "render":
-            versioninfo = os.path.dirname(os.path.dirname(file)) + "/" + "versioninfo.json"
-        else:
+    def getVersionInfo(self, file, type):
+        if type == "render":
+            versioninfo = (
+                os.path.dirname(os.path.dirname(file)) + "/" + "versioninfo.json"
+            )
+        elif type == "pb":
             versioninfo = os.path.dirname(file) + "/" + "versioninfo.json"
         versioninfo = versioninfo.replace("\\", "/")
 
@@ -523,37 +430,28 @@ class Prism_Slack_Functions(object):
 
         return seq, shot, identifier, version
 
+    @err_catcher(name=__name__)
+    def getSlackComment(self):
+        # Set additional comments for the upload
+        info_dialog = AdditionalInfoDialog()
+        if info_dialog.exec_() == QDialog.Accepted:
+            comment = info_dialog.get_comments()
+        else:
+            self.upload_message.close()
+            return
+
+        return comment
+
     # Upload file to Slack
     @err_catcher(name=__name__)
     def uploadToSlack(
-        self,
-        access_token,
-        conversation_id,
-        file_upload,
-        sequence,
-        shot,
-        identifier,
-        version,
-        method,
+        self, access_token, conversation_id, file_upload, comment, type, ui
     ):
-        import time
-
         prism_user = self.getPrismSlackUsername()
         channel_users = self.slack_user_pools.getChannelUsers(
             access_token, conversation_id
         )
         slack_user = self.getSlackUserId(prism_user, channel_users)
-
-        user_avatar = self.slack_user_info.getUserAvatar(access_token, slack_user)
-
-        # Set additional comments for the upload
-        info_dialog = AdditionalInfoDialog()
-        if info_dialog.exec_() == QDialog.Accepted:
-            comment = info_dialog.get_comments()
-            status = info_dialog.get_status()
-        else:
-            self.upload_message.close()
-            return
 
         try:
             # Upload the file to Slack
@@ -561,46 +459,33 @@ class Prism_Slack_Functions(object):
                 access_token, conversation_id, file_upload, slack_user, comment
             )
 
-            # if self.upload.get("ok"):
-            #     file_stats = os.stat(file_upload)
-            #     file_size = file_stats.st_size
-            #     # Wait for upload to complete and post. Slack has a rate limit of 1MB/s
-            #     delay = file_size / 1024 / 1024
-            #     if delay < 2:
-            #         time.sleep(2)
-            #     elif delay > 20:
-            #         time.sleep(20)
-            #     else:
-            #         time.sleep(delay)
-
-            # Post the message to the channel
-            # self.slack_message.postProgressMessage(
-            #     access_token,
-            #     conversation_id,
-            #     sequence,
-            #     shot,
-            #     identifier,
-            #     version,
-            #     slack_user,
-            #     user_avatar,
-            #     comment,
-            #     status,
-            # )
-
             # Post the successful upload message
             uploaded = True
-            SuccessfulPOST(uploaded, method, self.upload_message)
+            if ui == "DL":
+                print("File uploaded to Slack successfully!")
+            else:
+                SuccessfulPOST(uploaded, type, self.upload_message)
 
         except Exception as e:
             uploaded = False
-            self.core.popup(f"Failed to upload file to Slack: {e}")
-            SuccessfulPOST(uploaded, method, self.upload_message)
+            if ui == "DL":
+                print(f"Failed to upload file to Slack: {e}")
+            else:
+                self.core.popup(f"Failed to upload file to Slack: {e}")
+                SuccessfulPOST(uploaded, type, self.upload_message)
 
     @err_catcher(name=__name__)
-    def publishToSlack(self, file, seq, shot, identifier, version, mode):
-        current_project = self.core.getConfig(
-            "globals", "project_name", configPath=self.core.prismIni
-        ).lower()
+    def publishToSlack(self, file, state, comment, type, ui):
+        current_project = self.getCurrentProject()
+        output, converted = self.convert_image_sequence.checkConversion(
+            file, state, type="pb", ui="SM"
+        )
+        if converted is None:
+            file_upload = file[0]
+            file_upload = file_upload.replace("\\", "/")
+        else:
+            file_upload = converted[0]
+            file_upload = file_upload.replace("\\", "/")
 
         try:
             access_token = self.getAccessToken()
@@ -611,23 +496,17 @@ class Prism_Slack_Functions(object):
             return
 
         conversation_id = self.getChannelId(access_token, current_project)
-        file_upload = file[0]
-        file_upload.replace("\\", "/")
 
-        self.upload_message = UploadDialog()
-        self.upload_message.show()
+        if ui == "DL":
+            pass
+        else:
+            self.upload_message = UploadDialog()
+            self.upload_message.show()
 
         QTimer.singleShot(
             0,
             lambda: self.uploadToSlack(
-                access_token,
-                conversation_id,
-                file_upload,
-                seq,
-                shot,
-                identifier,
-                version,
-                mode,
+                access_token, conversation_id, file_upload, comment, type, ui
             ),
         )
 
@@ -635,38 +514,3 @@ class Prism_Slack_Functions(object):
     def isStudioLoaded(self):
         studio = self.core.plugins.getPlugin("Studio")
         return studio
-
-    @err_catcher(__name__)
-    def submitPythonJob(self, origin, jobId, jobOutputFile, jobName):
-        jobData = origin.stateManager.submittedDlJobData[jobId]
-        code = """
-import sys
-
-root = \"%s\"
-sys.path.append(root + "/Scripts")
-
-import PrismCore
-pcore = PrismCore.create(prismArgs=["noUI", "loadProject"])
-path = r\"%s\"
-
-print(f'PRISM OUTPUT FILE' {jobOutputFile})
-"""(self.core.prismRoot, os.path.expandvars(jobOutputFile))
-
-        if state.gb_submit.isChecked():
-            deadline = self.core.getPlugin("Deadline")
-            deadline.submitPythonJob(
-                code,
-                jobName,
-                jobPrio=80,
-                jobPool=jobData["jobInfos"]["Pool"],
-                jobSndPool=jobData["jobInfos"]["SecondaryPool"],
-                jobGroup=jobData["jobInfos"]["Group"],
-                jobTimeOut=jobData["jobInfos"]["TaskTimeoutMinutes"],
-                jobMachineLimit=jobData["jobInfos"]["MachineLimit"],
-                jobComment="Prism-Submission-Update_Master",
-                jobBatchName=jobData["jobInfos"].get("BatchName"),
-                frames="1",
-                suspended=jobData["jobInfos"].get("InitialStatus") == "Suspended",
-                jobDependencies=[jobId],
-                state=origin,
-            )

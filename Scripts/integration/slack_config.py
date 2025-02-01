@@ -19,7 +19,8 @@ class SlackConfig:
         # If the Studio plugin is not available, check the project configuration file
         elif self.core.getPlugin("Studio") is None:
             prjConfig_path = os.path.dirname(self.core.prismIni)
-
+            config = self.core.configs.getProjectConfigPath()
+            print(f"Config: {config}")
             return os.path.join(prjConfig_path, "pipeline.json")
 
         # Get the config from the studio path
@@ -38,14 +39,14 @@ class SlackConfig:
 
     # Load the slack configuration file
     @err_catcher(name=__name__)
-    def loadConfig(self, mode):
-        if mode == "user":
+    def loadConfig(self, type):
+        if type == "user":
             user_file = self.getUserConfig()
 
             with open(user_file, "r") as f:
                 return json.load(f)
 
-        elif mode == "studio":
+        elif type == "studio":
             pipeline_file = self.getSlackConfig()
 
         else:
@@ -66,10 +67,10 @@ class SlackConfig:
 
     # Save the settings to the slack configuration file
     @err_catcher(__name__)
-    def saveConfigSetting(self, setting, mode):
-        if mode == "user":
+    def saveConfigSetting(self, setting, type):
+        if type == "user":
             config = self.getUserConfig()
-        elif mode == "studio":
+        elif type == "studio":
             config = self.getSlackConfig()
         else:
             self.core.popup("Cannot retrieve configuration file")

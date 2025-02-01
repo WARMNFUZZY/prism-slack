@@ -84,23 +84,6 @@ class AdditionalInfoDialog(QDialog):
         self.lo_review = QHBoxLayout()
         self.gb_status.setLayout(self.lo_review)
 
-        self.rb_status_wip = QRadioButton("Work In Progress")
-        self.rb_status_wip.setStyleSheet(
-            """QRadioButton::indicator { width: 15px; height: 15px; }"""
-        )
-        self.rb_status_wip.setChecked(True)
-        self.lo_review.addWidget(self.rb_status_wip)
-
-        self.rb_status_reivew = QRadioButton("Request Review")
-        self.rb_status_reivew.setStyleSheet(
-            """QRadioButton::indicator { width: 15px; height: 15px; }"""
-        )
-        self.lo_review.addWidget(self.rb_status_reivew)
-
-        self.bg_status.addButton(self.rb_status_wip)
-        self.bg_status.addButton(self.rb_status_reivew)
-        self.layout().addWidget(self.gb_status)
-
         self.buttonLayout.addWidget(self.button_ok)
         self.buttonLayout.addWidget(self.button_cancel)
         self.layout().addLayout(self.buttonLayout)

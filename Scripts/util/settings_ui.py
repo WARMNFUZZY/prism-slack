@@ -76,7 +76,6 @@ class SettingsUI:
 
             lo_user.addWidget(l_user)
             lo_user.addWidget(origin.le_user)
-            print("Added origin.le_user")
             lo_user.addWidget(i_userHelp)
 
             lo_save = QHBoxLayout()

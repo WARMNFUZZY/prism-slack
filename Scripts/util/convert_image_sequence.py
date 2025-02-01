@@ -16,11 +16,6 @@ class ConvertImageSequence:
     def convertImageSequence(self, sequence):
         # Define the "slack" output folder
         folder_path = os.path.dirname(sequence)
-        slack_folder = os.path.join(folder_path, "slack")
-        self.core.popup("Converting Image Sequence")
-
-        if not os.path.exists(slack_folder):
-            os.makedirs(slack_folder)
 
         # Construct input and output paths
         if self.core.appPlugin.pluginName == "Houdini":
@@ -28,10 +23,8 @@ class ConvertImageSequence:
         else:
             input_sequence = sequence.replace(".####.", ".%04d.")
 
-        self.core.popup(f"Input Sequence: {input_sequence}")
         basename = os.path.basename(input_sequence).split(".%04d.")[0]
-        output_file = os.path.join(slack_folder, basename + ".mp4")
-        self.core.popup(f"Basename: {basename}\nOutput File: {output_file}")
+        output_file = os.path.join(folder_path, basename + ".mp4")
 
         ffmpegPath = os.path.join(
             self.core.prismLibs, "Tools", "FFmpeg", "bin", "ffmpeg.exe"
@@ -83,13 +76,8 @@ class ConvertImageSequence:
         output_file = output_file.replace("\\", "/")
         return output_file
 
-
-class ConversionCheck:
-    def __init__(self, core):
-        self.core = core
-    
     @err_catcher(name=__name__)
-    def checkConversion(self, output_file, state):
+    def checkConversion(self, output_file, state, type, ui):
         ext = os.path.splitext(output_file)[1].replace(".", "")
 
         rangeType = state.cb_rangeType.currentText()
@@ -103,55 +91,79 @@ class ConversionCheck:
             endFrame = state.sp_rangeEnd.text()
 
         if rangeType == "Expression":
-            self.core.popup(
-                "Your render has been published but the Slack plugin does not support expression ranges yet."
-            )
+            if ui == "DL":
+                print("Expression ranges are not supported right now.")
+            else:
+                self.core.popup(
+                    "Your render has been published but it was not published to Slack. The plugin does not currently support expression ranges."
+                )
             return
 
         if ext in ["exr", "png", "jpg"]:
             if rangeType == "Single Frame":
-                outputList = [output_file]
+                output = [output_file]
+                converted = None
 
             if rangeType != "Single Frame" and startFrame == endFrame:
-                file = output_file.replace(
+                output = output_file.replace(
                     "#" * self.core.framePadding, str(startFrame)
                 )
-                outputList = [file]
+                output = [output]
+                converted = None
 
             if rangeType != "Single Frame" and startFrame < endFrame:
                 if state.chb_mediaConversion.isChecked() is False:
-                    convert = ConvertImageSequence.convertImageSequence(
-                        output_file
-                    )
-                    outputList = [convert]
+                    convert = self.convertImageSequence(output_file)
+                    output = [output_file]
+                    converted = [convert]
                 else:
                     option = state.cb_mediaConversion.currentText().lower()
                     ext = self.retrieveExtension(option)
 
                     base = os.path.basename(output_file).split(".")[0]
-                    version_directory = os.path.dirname(
-                        os.path.dirname(output_file)
-                    )
-                    aov_directory = os.path.basename(
-                        os.path.dirname(output_file)
-                    )
-                    file = base.split(f"_{aov_directory}")[0]
+                    if type == "render":
+                        version_directory = os.path.dirname(
+                            os.path.dirname(output_file)
+                        )
+                        aov_directory = os.path.basename(os.path.dirname(output_file))
+                        file = base.split(f"_{aov_directory}")[0]
+                        converted_directory = (
+                            f"{version_directory} ({ext})/{aov_directory}"
+                        )
+                        converted_files = f"{converted_directory}/{file} ({ext})_{aov_directory}.{ext}"
+                    elif type == "pb":
+                        version_directory = os.path.dirname(output_file)
+                        aov_directory = os.path.basename(os.path.dirname(output_file))
+                        file = f"{base} ({ext})"
+                        converted_directory = f"{version_directory} ({ext})"
+                        converted_files = f"{converted_directory}/{file}.{ext}"
 
-                    converted_directory = (
-                        f"{version_directory} ({ext})/{aov_directory}"
-                    )
-                    converted_files = f"{converted_directory}/{file} ({ext})_{aov_directory}.{ext}"
-
-                    outputList = [converted_files]
-
+                    output = [output_file]
+                    converted = [converted_files]
                     if ext in ["png", "jpg"]:
                         framePad = "#" * self.core.framePadding
-                        sequence = f"{converted_directory}/{file} ({ext})_{aov_directory}.{framePad}.{ext}"
-                        convert = (
-                            ConvertImageSequence.convertImageSequence(
-                                sequence
-                            )
-                        )
-                        outputList = [convert]
-        
-        return outputList
+                        if type == "render":
+                            sequence = f"{converted_directory}/{file} ({ext})_{aov_directory}.{framePad}.{ext}"
+                        else:
+                            sequence = f"{converted_directory}/{file}.{framePad}.{ext}"
+                        convert = self.convertImageSequence(sequence)
+                        output = [output_file]
+                        converted = [convert]
+
+        return output, converted
+
+    # Get proper extension from media conversion type
+    @err_catcher(name=__name__)
+    def retrieveExtension(self, option):
+        if "png" in option:
+            ext = "png"
+        elif "jpg" in option:
+            ext = "jpg"
+        elif "mp4" in option:
+            ext = "mp4"
+        elif "mov" in option:
+            ext = "mov"
+        else:
+            ext = option
+
+        return ext
