@@ -201,34 +201,39 @@ class Prism_Slack_Functions(object):
         job_batch = job
         output = jobInfos.get("OutputFilename0")
         output = output.replace("\\", "/")
-        print(str(state))
-        print(state.__dict__)
-        print(state.cb_rangeType.currentText())
+
         job_dependency = deadline.getJobIdFromSubmitResult(result)
         if not job_dependency:
             print("ERROR: Could not extract Job ID from Deadline response.")
             return
+
+        state_data = {
+            "rangeType": state.cb_rangeType.currentText(),
+            "startFrame": state.l_rangeStart.text(),
+            "endFrame": state.l_rangeEnd.text(),
+            "convertMedia": state.chb_mediaConversion.isChecked(),
+        }
         comment = self.getSlackComment()
         code = self.deadline_submission.deadline_submission_script(
-            output, state, comment, type="render", ui="DL"
+            output, state_data, comment, type="render", ui="DL"
         )
 
-        # deadline.submitPythonJob(
-        #     code=code,
-        #     jobName=job + "_publishToSlack",
-        #     jobPrio=80,
-        #     jobPool=jobInfos.get("Pool"),
-        #     jobSndPool=jobInfos.get("SecondaryPool"),
-        #     jobGroup=jobInfos.get("Group"),
-        #     jobTimeOut=180,
-        #     jobMachineLimit=jobInfos.get("MachineLimit"),
-        #     # jobBatchName = job_batch,
-        #     frames="1",
-        #     suspended=jobInfos.get("InitialStatus") == "Suspended",
-        #     jobDependencies=job_dependency,
-        #     args=arguments,
-        #     state=state,
-        # )
+        deadline.submitPythonJob(
+            code=code,
+            jobName=job + "_publishToSlack",
+            jobPrio=80,
+            jobPool=jobInfos.get("Pool"),
+            jobSndPool=jobInfos.get("SecondaryPool"),
+            jobGroup=jobInfos.get("Group"),
+            jobTimeOut=180,
+            jobMachineLimit=jobInfos.get("MachineLimit"),
+            # jobBatchName = job_batch,
+            frames="1",
+            suspended=jobInfos.get("InitialStatus") == "Suspended",
+            jobDependencies=job_dependency,
+            args=arguments,
+            state=state,
+        )
 
     # Get current version in the Media tab in the Prism Project Browser
     @err_catcher(name=__name__)
@@ -475,10 +480,10 @@ class Prism_Slack_Functions(object):
                 SuccessfulPOST(uploaded, type, self.upload_message)
 
     @err_catcher(name=__name__)
-    def publishToSlack(self, file, state, comment, type, ui):
+    def publishToSlack(self, file, state_data, comment, type, ui):
         current_project = self.getCurrentProject()
         output, converted = self.convert_image_sequence.checkConversion(
-            file, state, type="pb", ui="SM"
+            file, state_data, type="pb", ui="SM"
         )
         if converted is None:
             file_upload = file[0]
@@ -498,17 +503,19 @@ class Prism_Slack_Functions(object):
         conversation_id = self.getChannelId(access_token, current_project)
 
         if ui == "DL":
-            pass
+            self.uploadToSlack(
+                access_token, conversation_id, file_upload, comment, type, ui
+            )
         else:
             self.upload_message = UploadDialog()
             self.upload_message.show()
 
-        QTimer.singleShot(
-            0,
-            lambda: self.uploadToSlack(
-                access_token, conversation_id, file_upload, comment, type, ui
-            ),
-        )
+            QTimer.singleShot(
+                0,
+                lambda: self.uploadToSlack(
+                    access_token, conversation_id, file_upload, comment, type, ui
+                ),
+            )
 
     @err_catcher(__name__)
     def isStudioLoaded(self):

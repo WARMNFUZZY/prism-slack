@@ -77,18 +77,18 @@ class ConvertImageSequence:
         return output_file
 
     @err_catcher(name=__name__)
-    def checkConversion(self, output_file, state, type, ui):
+    def checkConversion(self, output_file, state_data, type, ui):
         ext = os.path.splitext(output_file)[1].replace(".", "")
 
-        rangeType = state.cb_rangeType.currentText()
+        rangeType = state_data["rangeType"]
 
         if rangeType == "Single Frame" or rangeType in ["Scene", "Shot"]:
-            startFrame = state.l_rangeStart.text()
-            endFrame = state.l_rangeEnd.text()
+            startFrame = state_data["startFrame"]
+            endFrame = state_data["endFrame"]
 
         if rangeType == "Custom":
-            startFrame = state.sp_rangeStart.text()
-            endFrame = state.sp_rangeEnd.text()
+            startFrame = state_data["startFrame"]
+            endFrame = state_data["endFrame"]
 
         if rangeType == "Expression":
             if ui == "DL":
@@ -112,12 +112,12 @@ class ConvertImageSequence:
                 converted = None
 
             if rangeType != "Single Frame" and startFrame < endFrame:
-                if state.chb_mediaConversion.isChecked() is False:
+                if state_data["convertMedia"] is False:
                     convert = self.convertImageSequence(output_file)
                     output = [output_file]
                     converted = [convert]
                 else:
-                    option = state.cb_mediaConversion.currentText().lower()
+                    option = state_data["convertMedia"].lower()
                     ext = self.retrieveExtension(option)
 
                     base = os.path.basename(output_file).split(".")[0]
