@@ -55,14 +55,14 @@ class Prism_Slack_Functions(object):
         )
         self.core.registerCallback("onStateStartup", self.onStateStartup, plugin=self)
         self.core.registerCallback(
-            "postPlayblast", self.postPlayblast, plugin=self, priority=30
+            "postPlayblast", self.postPlayblast, plugin=self, priority=10
         )
         self.core.registerCallback(
-            "postRender", self.postRender, plugin=self, priority=30
+            "postRender", self.postRender, plugin=self, priority=10
         )
         self.core.registerCallback("preRender", self.preRender, plugin=self)
         self.core.registerCallback(
-            "postSubmit_Deadline", self.postSubmit_Deadline, plugin=self, priority=30
+            "postSubmit_Deadline", self.postSubmit_Deadline, plugin=self, priority=10
         )
 
     # Sets the plugin as active
