@@ -6,18 +6,17 @@ def setupPaths():
     sys.path.append(os.getenv("BOLTPATH"))
     sys.path.append(os.getenv("SCRIPTSPATH"))
     sys.path.append(os.getenv("PRISMPATH"))
-    sys.path.append(f'{os.getenv("PRISM_CORE")}\Scripts')
-    sys.path.append(f'{os.getenv("PRISMPATH")}\..\..\Scripts')
+    sys.path.append(os.getenv('PRISM_CORE'))
+    sys.path.append(os.getenv('PRISM_UTILS'))
+    sys.path.append(os.getenv('PRISMPATH'))
     sys.path.extend(os.getenv("PATH").split(";"))
 
 
 setupPaths()
 
 from slack_bolt import App
-
-from PrismCore import PrismCore as core
+import PrismCore
 from server.events import SlackEvents
-from server.blocks import SlackBlocks
 
 
 class SlackBoltServer:
@@ -26,11 +25,10 @@ class SlackBoltServer:
         self.app_token = app_token
         self.app = App(token=self.token)
 
-        # Initialize the Slack Blocks to be used in the Slack Bolt Server
-        self.blocks = SlackBlocks()
+        pcore = PrismCore.create(prismArgs=["noUI"])
 
         # Initialize the Slack Events to be used in the Slack Bolt Server
-        self.events = SlackEvents(self.app, token, core=core)
+        self.events = SlackEvents(self.app, token, core=pcore)
 
 
 if __name__ == "__main__":

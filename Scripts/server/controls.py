@@ -4,10 +4,16 @@ import socket
 import subprocess
 from pathlib import Path
 
-from qtpy.QtWidgets import *
+from Scripts.client.slack.slack_config import SlackConfig
+from Scripts.client.prism.ui import (
+    ServerStartWarning,
+    ServerStopWarning,
+    ServerNonWarning,
+)
 
-from integration.slack_config import SlackConfig
-from util.dialogs import ServerStartWarning, ServerStopWarning
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -15,19 +21,18 @@ from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 class ServerControls:
     def __init__(self, core):
         self.core = core
-        self.slack_config = SlackConfig(self.core)
 
     # Start the Slack Bolt Server
     @err_catcher(name=__name__)
-    def startServer(self):
+    def start_server(self):
         # Create paths for the environment variables to be used in the Slack Bolt Server
-        scripts_path = os.path.join(
-            self.core.getPlugin("Slack").pluginDirectory, "Scripts"
-        )
+        scripts_path = self.core.getPlugin("Slack").pluginDirectory
         bolt_path = os.path.join(scripts_path, "server", "bolt.py")
-        self.config = self.slack_config.loadConfig(type="studio")
-        token = self.config["slack"]["token"]
-        app_token = self.config["slack"]["server"]["app_token"]
+
+        config = SlackConfig(self.core).load_config(mode="studio")
+        token = config["slack"]["token"]
+        app_token = config["slack"]["server"]["app_token"]
+
         executable = os.path.join(self.core.prismLibs, "Python311", "python.exe")
 
         # Set the environment variables for the Slack Bolt Server
@@ -36,94 +41,126 @@ class ServerControls:
         sub_env["SCRIPTSPATH"] = f"{Path(__file__).resolve().parents[1]}"
         sub_env["PRISMPATH"] = f"{self.core.prismLibs}\PythonLibs\Python3"
         sub_env["PRISM_CORE"] = f"{self.core.prismLibs}\Scripts"
+        sub_env["PRISM_UTILS"] = F"{self.core.prismLibs}\Scripts\PrismUtils"
 
-        self.server_status = self.config["slack"]["server"].get("status")
-        self.machine = self.config["slack"]["server"].get("machine")
+        server_status = config["slack"]["server"].get("status")
+        machine = config["slack"]["server"].get("machine")
 
         # Set handler for console events to reset the server status if the server is stopped
         win32api.SetConsoleCtrlHandler(
-            lambda event: (self.resetServerStatus() if event == 2 else False), True
+            lambda event: (self.reset_server_status() if event == 2 else False), True
         )
 
         # Attempt to start the Slack Bolt Server
         try:
-            if self.server_status != "Running" and os.path.exists(bolt_path):
-                self.bolt = subprocess.Popen(
+            if server_status != "Running" and os.path.exists(bolt_path):
+                bolt = subprocess.Popen(
                     [executable, bolt_path, token, app_token], env=sub_env, text=True
                 )
 
                 # Update the server status/machine/pid in the config file
-                pipeline_data = self.slack_config.loadConfig(type="studio")
-                pipeline_data["slack"]["server"]["status"] = "Running"
-                pipeline_data["slack"]["server"]["machine"] = socket.gethostname()
-                pipeline_data["slack"]["server"]["pid"] = self.bolt.pid
-                self.slack_config.saveConfigSetting(pipeline_data, type="studio")
+                config = SlackConfig(self.core).load_config(mode="studio")
+                config["slack"]["server"]["status"] = "Running"
+                config["slack"]["server"]["machine"] = socket.gethostname()
+                config["slack"]["server"]["pid"] = bolt.pid
+                SlackConfig(self.core).save_server_config_setting(config, mode="studio")
+            
+            else:
+                print("Slack Bolt Server is already running")
+                return
 
         except Exception as e:
             self.core.popup(f"Error starting the Slack Bolt Server: {e}")
-            self.stopServer()
+            self.stop_server()
 
     # Reset the server status in the conig file
-    def resetServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(type="studio")
-        pipeline_data["slack"]["server"]["status"] = ""
-        pipeline_data["slack"]["server"]["machine"] = ""
-        pipeline_data["slack"]["server"]["pid"] = ""
-        self.slack_config.saveConfigSetting(pipeline_data, type="studio")
+    def reset_server_status(self):
+        config = SlackConfig(self.core).load_config(mode="studio")
+        config["slack"]["server"]["status"] = ""
+        config["slack"]["server"]["machine"] = ""
+        config["slack"]["server"]["pid"] = ""
+        SlackConfig(self.core).save_server_config_setting(config, mode="studio")
 
-        self.checkServerStatus(origin)
 
     # Stop the Slack Bolt Server
     @err_catcher(name=__name__)
-    def stopServer(self):
-        self.config = self.slack_config.loadConfig(type="studio")
-        status = self.config["slack"]["server"].get("status")
-        pid = self.config["slack"]["server"].get("pid")
-        print(pid)
+    def stop_server(self):
+        config = SlackConfig(self.core).load_config(mode="studio")
+        status = config["slack"]["server"].get("status")
+        pid = config["slack"]["server"].get("pid")
 
         if status == "Running":
             try:
-                self.resetServerStatus(origin=None)
-                os.kill(pid, 9)
-                print("Slack Bolt Server stopped")
+                if os.name == "nt":
+                    os.system(f"taskkill /F /PID {pid}")
+                    print("Slack Bolt Server stopped")
+                    self.reset_server_status()
+
             except Exception as e:
-                self.core.popup(f"Error stopping the Slack Bolt Server: {e}")
+                print(f"Error stopping the Slack Bolt Server: {e}")
 
     # Start the Slack Bolt Server from the GUI
     @err_catcher(name=__name__)
-    def guiStartServer(self, origin):
+    def gui_start_server(self, origin):
         start_check = ServerStartWarning()
         if start_check.exec_() == QDialog.Accepted:
-            self.startServer()
+            self.start_server()
             origin.b_server.setText("Stop Server")
             origin.b_reset_server.setEnabled(False)
-            self.checkServerStatus(origin)
+            self.check_server_status(origin)
         else:
             return
 
     # Stop the Slack Bolt Server from the GUI
     @err_catcher(name=__name__)
-    def guiStopServer(self, origin):
+    def gui_stop_server(self, origin):
         stop_check = ServerStopWarning()
         if stop_check.exec_() == QDialog.Accepted:
-            self.stopServer()
+            self.stop_server()
             origin.b_server.setText("Start Server")
             origin.b_reset_server.setEnabled(True)
-            self.checkServerStatus(origin)
+            self.check_server_status(origin)
         else:
             return
+        
+    # Reset the Slack Bolt Server status from the GUI
+    @err_catcher(name=__name__)
+    def gui_reset_server_status(self, origin):
+        self.reset_server_status()
+        origin.b_server.setText("Start Server")
+        origin.b_reset_server.setEnabled(False)
+        self.check_server_status(origin)
+
 
     # Check the status of the Slack Bolt Server from the config file
     @err_catcher(name=__name__)
-    def checkServerStatus(self, origin):
-        pipeline_data = self.slack_config.loadConfig(type="studio")
-        self.slack_config.checkSlackOptions(pipeline_data)
+    def check_server_status(self, origin):
+        config = SlackConfig(self.core).load_config(mode="studio")
 
-        status = pipeline_data["slack"]["server"].get("status")
-        machine = pipeline_data["slack"]["server"].get("machine")
+        status = config["slack"]["server"].get("status")
+        machine = config["slack"]["server"].get("machine")
 
         if origin is not None:
             origin.l_server_status_value.setText(status)
             origin.l_machine_value.setText(machine)
 
-        return pipeline_data["slack"]["server"].get("status")
+        return config["slack"]["server"].get("status")
+
+    # Toggle the Server controls in the studio/project settings window
+    @err_catcher(name=__name__)
+    def toggle_server(self, origin):
+        config = SlackConfig(self.core).load_config(mode="studio")
+
+        server_machine = config["slack"]["server"].get("machine")
+        server_status = config["slack"]["server"].get("status")
+
+        if server_status == "Running":
+            if socket.gethostname() != server_machine:
+                non_server_check = ServerNonWarning()
+                non_server_check.exec_()
+                return
+            else:
+                self.gui_stop_server(origin)
+        else:
+            origin.b_reset_server.setEnabled(True)
+            self.gui_start_server(origin)
