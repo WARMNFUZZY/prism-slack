@@ -74,10 +74,3 @@ If you do not know where to find the packages you just installed, run this comma
 If the PythonLibs folder does not exist, create it  
 > {PRISM_PLUGIN_DIRECTORY}/Slack/PythonLibs
 
-
-
-## Known Bugs and Limitations  
-<details>
-    <summary>Deadline Unsupported</summary>
-    Currently publishing to the farm is unsupported. It will need a separate Python task as part of the job in order to carry out the publishing via render farm.
-</details>
