@@ -1,9 +1,6 @@
 import os
-import win32api
 import socket
-import subprocess
 from pathlib import Path
-
 from Scripts.client.slack.slack_config import SlackConfig
 from Scripts.client.prism.ui import (
     ServerStartWarning,
@@ -25,6 +22,8 @@ class ServerControls:
     # Start the Slack Bolt Server
     @err_catcher(name=__name__)
     def start_server(self):
+        import win32api
+        import subprocess
         # Create paths for the environment variables to be used in the Slack Bolt Server
         scripts_path = self.core.getPlugin("Slack").pluginDirectory
         bolt_path = os.path.join(scripts_path, "server", "bolt.py")

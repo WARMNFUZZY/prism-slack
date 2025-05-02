@@ -14,14 +14,9 @@ class PublishToSlack:
         self.core = core
 
     def publish_to_slack(self, file, state_data, prism_user):
-        
-        print(f"State Data: {state_data}")
-        print(f"File: {file}")
-        print(f"Prism User: {prism_user}")
-
         if state_data["ui"] != "Media":
             ext = os.path.splitext(file)[1].replace(".", "")
-            upload = check_conversion(state_data, self.core, ext, file)[0]
+            upload = check_conversion(self.core, state_data, ext, file)[0]
         else:
             upload = file[0]
 
@@ -36,7 +31,7 @@ class PublishToSlack:
         try:
             upload.replace("\\", "/")
         except Exception as e:
-            print("No need to replace slashes")
+            print("")
         
         if state_data["ui"] != "DL":
             QTimer.singleShot(

@@ -20,25 +20,26 @@ def preRender(core, **kwargs):
     except:
         raise "Failed to retrieve Slack access token. Please check your configuration."
 
-    if state.gb_slack.isChecked():
-        if state.chb_slackNotify.isChecked():
-            if API(core).get_prism_slack_username() == "":
-                local_user = _input_local_slack_user()
+    if hasattr(state, "gb_slack"):
+        if state.gb_slack.isChecked():
+            if state.chb_slackNotify.isChecked():
+                if API(core).get_prism_slack_username() == "":
+                    local_user = _input_local_slack_user()
 
-            else:
-                local_user = API(core).get_prism_slack_username()
+                else:
+                    local_user = API(core).get_prism_slack_username()
 
-            project = API(core).get_current_project()
-            notify_user = state.cb_slackUserPool.currentText()
-            channel = get_channel_id(access_token, project)
-            channel_users = get_channel_users(access_token, channel)
-            slack_recipient = API(core).get_slack_user_id(notify_user, channel_users)
-            product = state.l_taskName.text()
-            slack_sender = API(core).get_slack_user_id(local_user, channel_users)
+                project = API(core).get_current_project()
+                notify_user = state.cb_slackUserPool.currentText()
+                channel = get_channel_id(access_token, project)
+                channel_users = get_channel_users(access_token, channel)
+                slack_recipient = API(core).get_slack_user_id(notify_user, channel_users)
+                product = state.l_taskName.text()
+                slack_sender = API(core).get_slack_user_id(local_user, channel_users)
 
-            notify_slack_user(
-                core, access_token, slack_recipient, channel, product, slack_sender
-            )
+                notify_slack_user(
+                    core, access_token, slack_recipient, channel, product, slack_sender
+                )
 
 
 # Notify user about new version of product is on the way!

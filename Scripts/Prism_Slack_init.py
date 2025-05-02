@@ -13,8 +13,8 @@ from Scripts.prism_plugin_utils.Prism_Slack_externalAccess_Functions import (
     Prism_Slack_externalAccess_Functions,
 )
 from Scripts.client.prism.utils.publish_to_slack import PublishToSlack
+from Scripts.client.slack.slack_config import SlackConfig
 from Scripts.client.prism.api import API
-from Scripts.client.slack import get_channel_id, get_channel_users
 
 
 
@@ -30,8 +30,6 @@ class Prism_Slack(
 
         self.server_apis = os.path.join(self.pluginDirectory, "PythonLibs")
         sys.path.append(self.server_apis)
-        self.get_channel_id = get_channel_id
-        self.get_channel_users = get_channel_users
 
         Prism_Slack_Functions.__init__(self, core, self)
         Prism_Slack_externalAccess_Functions.__init__(self, core, self)

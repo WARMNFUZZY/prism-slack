@@ -20,7 +20,6 @@ from Scripts.client.prism.callbacks.on_state_startup import onStateStartup
 from Scripts.client.prism.callbacks.post_playblast import postPlayblast
 from Scripts.client.prism.callbacks.post_render import postRender
 from Scripts.client.prism.callbacks.pre_render import preRender
-from Scripts.client.prism.callbacks.pre_publish import prePublish
 from Scripts.client.prism.callbacks.pre_playblast import prePlayblast
 from Scripts.client.prism.utils.deadline_submission import deadline_submission_script
 
@@ -32,6 +31,9 @@ class Prism_Slack_Functions(object):
         self.core = core
         self.plugin = plugin
         self.config = SlackConfig(self.core)
+
+        self.slack_config = self.config.load_config(mode="studio")
+        self.config.check_slack_studio_options(self.slack_config)
 
         self.core.registerCallback(
             "mediaPlayerContextMenuRequested",
@@ -50,16 +52,13 @@ class Prism_Slack_Functions(object):
         self.core.registerCallback(
             "preRender", partial(preRender, self.core), plugin=self, priority=15
         )
-        # self.core.registerCallback(
-        #     "prePublish", partial(prePublish, self.core), plugin=self, priority=15
-        # )
         self.core.registerCallback(
             "prePlayblast", partial(prePlayblast, self.core), plugin=self, priority=15
         )
         self.core.registerCallback(
             "postSubmit_Deadline", self.postSubmit_Deadline, plugin=self, priority=15
         )
-    
+
     # Sets the plugin as active
     @err_catcher(name=__name__)
     def isActive(self):

@@ -1,12 +1,10 @@
 import os
 import subprocess
-import glob
-import re
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 
-def check_conversion(state_data, core, ext, output_path):
+def check_conversion(core, state_data, ext, output_path):
     if core.appPlugin.pluginName == "Houdini":
         if state_data['state_type'] == 'pb' and state_data['extension'] == ".mp4":
             directory = os.path.dirname(output_path)
@@ -25,22 +23,22 @@ def check_conversion(state_data, core, ext, output_path):
 
     if core.getPlugin("MediaExtension"):
         if state_data["convert_media"] is True:
-            return _handle_media_conversion_checkbox(state_data, core, output_path, ext)
+            return _handle_media_conversion_checkbox(state_data, core, output_path)
 
     if state_data["range_type"] == "Single Frame":
         return _handle_single_frame(state_data, output_path)
 
-    if state_data["range_type"] in ["Scene", "Shot"]:
-        return _handle_scene_shot(state_data, core, output_path)
-
-    elif state_data["range_type"] == "Custom":
-        return _handle_custom(state_data, core, output_path)
+    if state_data["range_type"] in ["Scene", "Shot", "Custom", "Node"]:
+        return _handle_scene_shot_custom_node(state_data, core, output_path)
+    
+    if state_data["range_type"] == "Shot + 1":
+        return _shot_plus_one(state_data, core, output_path)
     
     else:
         raise ValueError("Invalid range type.")
     
 
-def _handle_media_conversion_checkbox(state_data, core, outputPath, ext):
+def _handle_media_conversion_checkbox(state_data, core, outputPath):
     option = state_data["converted_extension"].lower()
     option = _retrieve_extension(option)
     base = os.path.basename(outputPath).split(".")[0]
@@ -49,14 +47,12 @@ def _handle_media_conversion_checkbox(state_data, core, outputPath, ext):
 
     if state_data["state_type"] == "pb":
         if option in ["mp4", "mov"]:
-            converted_directory = f"{top_directory} ({option})"
-            converted_file = f"{converted_directory}/{base} ({option}).{option}"
+            converted_file = f"{top_directory} ({option})/{base} ({option}).{option}"
             output_list.append(converted_file)
         
         elif option in ["png", "jpg"]:
             framePad = "#" * core.framePadding
-            converted_directory = f"{top_directory} ({option})"
-            sequence = f"{converted_directory}/{base} ({option}).{framePad}.{option}"
+            sequence = f"{top_directory} ({option})/{base} ({option}).{framePad}.{option}"
             convert = _convert_image_sequence(core, sequence, state_data)
             output_list.append(convert)
 
@@ -65,16 +61,15 @@ def _handle_media_conversion_checkbox(state_data, core, outputPath, ext):
         version_folder = os.path.dirname(os.path.dirname(outputPath)).split("/")[-1]
         top_directory = os.path.dirname(os.path.dirname(os.path.dirname(outputPath)))
         version_directory_ext = f"{version_folder} ({option})"
-        converted_directory = f"{version_directory_ext}/{aov}"
         base = base.replace(version_folder, version_directory_ext)
 
         if option in ["mp4", "mov"]:
-            converted_file = f"{top_directory}/{converted_directory}/{base}.{option}"
+            converted_file = f"{top_directory}/{version_directory_ext}/{aov}/{base}.{option}"
             output_list.append(converted_file)
         
         elif option in ["png", "jpg"]:
             framePad = "#" * core.framePadding
-            sequence = f"{top_directory}/{converted_directory}/{base}.{framePad}.{option}"
+            sequence = f"{top_directory}/{version_directory_ext}/{aov}/{base}.{framePad}.{option}"
             convert = _convert_image_sequence(core, sequence, state_data)
             output_list.append(convert)
 
@@ -95,7 +90,7 @@ def _convert_image_sequence(core, sequence, state_data):
 
     # Construct input and output paths
     contstructed_file = _construct_output_file(input_sequence)
-    
+
     # Run ffmpeg to create the video
     output_file = _convert_to_mp4(core, input_sequence, start_frame, contstructed_file)
     
@@ -105,17 +100,19 @@ def _convert_image_sequence(core, sequence, state_data):
 # Convert the sequence path to a more universal format
 def _convert_sequence_path(core, sequence, state_data):
     if state_data['app'] == "Houdini":
-        input_sequence = sequence.replace(".$F4.", ".%04d.")
+        if state_data['convert_media'] is True:
+            input_sequence = sequence.replace("#" * core.framePadding, "%04d")
+        else:
+            input_sequence = sequence.replace(".$F4.", ".%04d.")
     
     elif state_data['app'] == "Cinema4D":
-        ext = os.path.splitext(sequence)[1]
-        base = os.path.basename(sequence).split(".")[0]
-        directory = os.path.dirname(sequence)
-        
-        input_sequence = os.path.join(directory, f"{base}.%04d{ext}")
+        if state_data['convert_media'] is True:
+            input_sequence = sequence.replace("#" * core.framePadding, "%04d")
+        else:
+            input_sequence = sequence.replace("..", ".%04d.")
 
     else:
-        input_sequence = sequence.replace(".####.", ".%04d.")
+        input_sequence = sequence.replace("#" * core.framePadding, "%04d")
 
     return input_sequence
 
@@ -179,15 +176,20 @@ def _handle_single_frame(state_data, output_path):
     return [output]
 
 
-def _handle_scene_shot(state_data, core, output_path):
-    start_frame = state_data["start_frame"]
-    end_frame = state_data["end_frame"]
-
-    if start_frame == end_frame:
-        file = output_path.replace("#" * core.framePadding, str(start_frame))
+def _handle_scene_shot_custom_node(state_data, core, output_path):
+    if int(state_data["start_frame"]) == int(state_data["end_frame"]):
+        if core.appPlugin.pluginName == "Houdini":
+            file = output_path.replace(".$F4.", state_data["start_frame"])
+        
+        elif core.appPlugin.pluginName == "Cinema4D":
+            file = output_path.replace("..", f".{state_data['start_frame']}.")
+        
+        else:
+            file = output_path.replace("#" * core.framePadding, state_data["start_frame"])
+        
         outputList = [file]
 
-    elif start_frame < end_frame:
+    elif int(state_data["start_frame"]) < int(state_data["end_frame"]):
         convert = _convert_image_sequence(core, output_path, state_data)
         outputList = [convert]
 
@@ -198,19 +200,39 @@ def _handle_scene_shot(state_data, core, output_path):
 
 
 def _handle_custom(state_data, core, output_path):
-    start_frame = state_data["start_frame"]
-    end_frame = state_data["end_frame"]
-
-    if start_frame == end_frame:
-        file = output_path.replace("#" * core.framePadding, str(start_frame))
+    if int(state_data["start_frame"]) == int(state_data["end_frame"]):
+        file = output_path.replace("#" * core.framePadding, state_data["start_frame"])
         outputList = [file]
 
-    elif start_frame < end_frame:
+    elif int(state_data["start_frame"]) < int(state_data["end_frame"]):
         convert = _convert_image_sequence(core, output_path, state_data)
         outputList = [convert]
 
     else:
         raise ValueError("Invalid range.")
+
+    return outputList
+
+
+def _handle_node(state_data, core, output_path):
+    if int(state_data["start_frame"]) == int(state_data["end_frame"]):
+        file = output_path.replace("$F4" * core.framePadding, state_data["start_frame"])
+        outputList = [file]
+    
+    elif int(state_data["start_frame"]) < int(state_data["end_frame"]):
+        convert = _convert_image_sequence(core, output_path, state_data)
+        outputList = [convert]
+    
+    else:
+        raise ValueError("Invalid range.")
+    
+    return outputList
+
+
+def _shot_plus_one(state_data, core, output_path):
+
+    convert = _convert_image_sequence(core, output_path, state_data)
+    outputList = [convert]
 
     return outputList
 

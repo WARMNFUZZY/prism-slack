@@ -27,8 +27,13 @@ class SlackConfig:
         else:
             studio_plugin = self.core.getPlugin("Studio")
             studio_path = studio_plugin.getStudioPath()
-
-            return os.path.join(studio_path, "configs", "slack.json")
+            
+            if studio_path is None:
+                project_config_path = self.get_project_config()
+                return project_config_path
+            else:    
+                return os.path.join(studio_path, "configs", "slack.json")
+            
 
     # Get the Prism user configuration file
     @err_catcher(name=__name__)
@@ -94,6 +99,7 @@ class SlackConfig:
         else:
             self.core.popup("Cannot retrieve the Slack configuration file")
             return
+        
         try:
             if mode == "studio":
                 studio = self.core.getPlugin("Studio")
@@ -105,7 +111,9 @@ class SlackConfig:
                             json.dump(setting, f, indent=4)
                     else:
                         return 
-                    
+                else:
+                    with open(config, "w") as f:
+                        json.dump(setting, f, indent=4)                 
             else:
                 with open(config, "w") as f:
                     json.dump(setting, f, indent=4)
@@ -131,15 +139,14 @@ class SlackConfig:
             print(f"Error saving server config file: {e}")
             return
 
-    # Check if Slack options are present in the pipeline configuration file. If it's not, add them
+    # Check if Slack options are present in the pipeline/slack configuration file. If it's not, add them
     @err_catcher(name=__name__)
-    def check_slack_options(self, config):
+    def check_slack_studio_options(self, config):
         slack_defaults = {
             "token": "",
             "notifications": {
                 "method": "",
                 "user_pool": "",
-                "layout": "",
             },
             "custom": {"channel": ""},
             "server": {
@@ -167,6 +174,3 @@ class SlackConfig:
         except Exception as e:
             self.save_config_setting(config, "studio")
             return
-
-    def _get_slack_defaults(self):
-        return

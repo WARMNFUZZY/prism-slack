@@ -48,8 +48,6 @@ def _get_comments(core, file, state_data, prism_user):
         comment = info_dialog.get_comments()
         state_data["comments"] = comment
 
-        if API(core).get_server_approvals() == "True":
-            status = info_dialog.get_status()
         info_dialog.close()
     
     else:

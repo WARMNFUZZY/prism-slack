@@ -15,7 +15,7 @@ from qtpy.QtWidgets import *
 # Load the UI for the Slack plugin in the system tray context menu
 def trayContextMenuRequested(core, origin, menu):
     config = SlackConfig(core).load_config(mode="studio")
-    # SlackConfig(core).check_slack_options(config)
+    SlackConfig(core).check_slack_studio_options(config)
 
     server_status = config["slack"]["server"].get("status")
     server_machine = config["slack"]["server"].get("machine")
