@@ -37,7 +37,17 @@ This is the Slack plugin for Prism-Pipeline 2.0
   
 
 ## Installation
+
+### CLI
+For a shorter method of install the plugin, see the two commands below. Open a Terminal in your Prism Plugin directory and copy/paste/type in these commands:
+>   git clone https://github.com/WARMNFUZZY/prism-slack.git Slack
+    pip install -r requirements.txt -t ./PythonLibs
+
 ### Plugin
+
+If you want to avoid the next 4 steps below, you can open a terminal in the Prism Plugins directory and run this command
+> git clone https://github.com/WARMNFUZZY/prism-slack.git Slack
+
 1. Download the Plugin  
 
 >   Option 1: Download the current release package from the repository's release page.  
@@ -58,6 +68,9 @@ This is the Slack plugin for Prism-Pipeline 2.0
   
 ### Slack
 We did not include the Slack API’s in the repository to limit the size of it. You can either download the release package or you can download it on your own. If you chose to download it on your own, please follow the steps below to do so.  
+
+If you want to avoid all of these steps below, you can open a terminal in the Slack plugin directory and run this command
+> pip install -r requirements.txt -t ./PythonLibs
 
 1. Install the Slack Bolt and Slack SDK
 > pip install slack_sdk  
