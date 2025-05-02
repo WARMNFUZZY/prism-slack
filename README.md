@@ -57,7 +57,7 @@ If you want to avoid the next 4 steps below, you can open a terminal in the Pris
 >   If you downloaded the ZIP file, extract its contents to a folder.
 
 3. Move the Plugin to the Prism Plugin Folder
->   Locate your Prism Plugin folder.
+>   Locate your Prism Plugin folder.  
     Drag and drop the downloaded or unzipped plugin folder into the Prism Plugin folder.
 
 4. Reload Prism
