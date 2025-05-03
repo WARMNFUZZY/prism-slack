@@ -33,9 +33,6 @@ This is the Slack plugin for Prism-Pipeline 2.0
 
    - You are required to create a bot application in Slack. You can find the installation process for this below or check the documentation here: [Slack Bot Installation](https://coda.io/@wf-jkesig/warmn-fuzzy-slack-plugin/installation-3)
 
-2. Channel Name = Project Name
-   - Your channel must match the name of your current project. Will add the option for a [custom slack channel](#custom-slack-channel) in the future
-
 ## Installation
 
 ### CLI
