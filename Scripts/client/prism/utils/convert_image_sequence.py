@@ -179,7 +179,7 @@ def _handle_single_frame(state_data, output_path):
 def _handle_scene_shot_custom_node(state_data, core, output_path):
     if int(state_data["start_frame"]) == int(state_data["end_frame"]):
         if core.appPlugin.pluginName == "Houdini":
-            file = output_path.replace(".$F4.", state_data["start_frame"])
+            file = output_path.replace("$F4", state_data['start_frame'])
         
         elif core.appPlugin.pluginName == "Cinema4D":
             file = output_path.replace("..", f".{state_data['start_frame']}.")
