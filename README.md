@@ -40,7 +40,7 @@ This is the Slack plugin for Prism-Pipeline 2.0
 
 ### CLI
 For a shorter method of install the plugin, see the two commands below. Open a Terminal in your Prism Plugin directory and copy/paste/type in these commands:
->   git clone https://github.com/WARMNFUZZY/prism-slack.git Slack
+>   git clone https://github.com/WARMNFUZZY/prism-slack.git Slack  
     pip install -r requirements.txt -t ./PythonLibs
 
 ### Plugin
