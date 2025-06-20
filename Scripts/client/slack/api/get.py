@@ -20,19 +20,25 @@ def get_user_info(access_token, user_id):
 
 # Get Slack Channel ID from conversation list
 def get_channel_id(access_token, project_name):
-    conversation_id = None
+    url = "https://slack.com/api/conversations.list"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"limit": 1000}
+    next_cursor = None
 
     try:
-        url = "https://slack.com/api/conversations.list"
-        headers = {"Authorization": f"Bearer {access_token}"}
-        response = requests.get(url, headers=headers)
+        while True:
+            if next_cursor:
+                params["cursor"] = next_cursor
+            response = requests.get(url, headers=headers, params=params)
+            conversations = response.json()
 
-        conversations = response.json()
+            for conversation in conversations.get("channels", []):
+                if conversation["name"] == project_name:
+                    return conversation["id"]
 
-        for conversation in conversations["channels"]:
-            if conversation["name"] == project_name:
-                conversation_id = conversation["id"]
-                return conversation_id
+            next_cursor = conversations.get("response_metadata", {}).get("next_cursor")
+            if not next_cursor:
+                break
 
     except Exception as e:
         print(f"Error getting channel ID: {e}")
